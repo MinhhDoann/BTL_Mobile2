@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Button } from '@react-navigation/elements';
 import { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -25,10 +26,12 @@ export function AppHeader({ title, onBackPress, rightAction }: AppHeaderProps) {
       </View>
 
       <Text numberOfLines={1} style={styles.title}>
-        {title}
+        {title}      
       </Text>
 
-      <View style={[styles.side, styles.rightSide]}>{rightAction}</View>
+      <View style={[styles.side, styles.rightSide]}>{rightAction}
+        <Button style={styles.button}>Login</Button>
+      </View>
     </View>
   );
 }
@@ -42,6 +45,7 @@ const styles = StyleSheet.create({
   side: {
     alignItems: 'flex-start',
     minWidth: 44,
+    marginRight: 8,
   },
   rightSide: {
     alignItems: 'flex-end',
@@ -58,5 +62,10 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     textAlign: 'center',
+  },
+  button: {
+    backgroundColor: '#1E293B',
+    paddingRight: 20,
+    paddingVertical: 8,
   },
 });
