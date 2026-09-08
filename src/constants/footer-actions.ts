@@ -1,4 +1,4 @@
-import { FooterAction } from '@/components/ui/footer';
+import { FooterAction } from '@/src/components/ui/footer';
 import { useRouter } from 'expo-router';
 
 export function useFooterActions(activeTab: string = 'home'): FooterAction[] {
@@ -20,7 +20,7 @@ export function useFooterActions(activeTab: string = 'home'): FooterAction[] {
       active: activeTab === 'search',
       onPress: () => {
         console.log('Chuyển tới Tìm kiếm');
-        // router.push('/search'); // Bật dòng này khi bạn tạo file trang tìm kiếm
+        router.push('/search');
       },
     },
     {
