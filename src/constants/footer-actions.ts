@@ -10,8 +10,7 @@ export function useFooterActions(activeTab: string = 'home'): FooterAction[] {
       icon: 'house.fill',
       active: activeTab === 'home',
       onPress: () => {
-        // Chuyển hướng về trang chủ
-        router.push('/');
+        router.push('/' as any);
       },
     },
     {
@@ -20,7 +19,7 @@ export function useFooterActions(activeTab: string = 'home'): FooterAction[] {
       active: activeTab === 'search',
       onPress: () => {
         console.log('Chuyển tới Tìm kiếm');
-        router.push('/search');
+        router.push('/search' as any);
       },
     },
     {
