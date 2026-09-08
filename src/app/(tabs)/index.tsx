@@ -1,6 +1,6 @@
-import { AppHeader } from '@/components/ui/app-header';
-import { Footer } from '@/components/ui/footer';
-import { useFooterActions } from '@/constants/footer-actions';
+import { AppHeader } from '@/src/components/ui/app-header';
+import { Footer } from '@/src/components/ui/footer';
+import { useFooterActions } from '@/src/constants/footer-actions';
 import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
