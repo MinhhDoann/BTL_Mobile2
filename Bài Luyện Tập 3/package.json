@@ -1,0 +1,12 @@
+{
+  "name": "bai-luyen-tap-3",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Bài Luyện Tập 3 - Ôn tập JavaScript ES6+ cho React Native",
+  "scripts": {
+    "bai1": "node basic.js",
+    "bai2": "node app.js",
+    "bai3": "node products.js",
+    "all": "node run_all.js"
+  }
+}
