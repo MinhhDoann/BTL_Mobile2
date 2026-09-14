@@ -1,6 +1,7 @@
 import { AppHeader } from '@/src/components/ui/app-header';
 import { Footer } from '@/src/components/ui/footer';
 import { useFooterActions } from '@/src/constants/footer-actions';
+import { Audio } from 'expo-av';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -34,6 +35,8 @@ export default function HomeScreen() {
   // State lưu danh sách dữ liệu từ CSDL
   const [genresData, setGenresData] = useState<GenreWithSongs[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [sound, setSound] = useState<any>(null);
+  const [playingSongId, setPlayingSongId] = useState<number | null>(null);
 
   // Gọi API lấy danh sách thể loại và bài hát khi mở màn hình
   useEffect(() => {
@@ -54,18 +57,80 @@ export default function HomeScreen() {
 
   // Component render từng card bài hát theo hàng ngang
   const renderSongItem = ({ item }: { item: Song }) => (
-    <TouchableOpacity 
-      style={styles.songCard} 
-      onPress={() => console.log('Phát bài hát:', item.title)}
+    <TouchableOpacity
+      style={styles.songCard}
+      onPress={() => playSong(item)}
     >
-      <Image 
-        source={{ uri: item.cover_url || 'https://via.placeholder.com/120' }} 
-        style={styles.coverImage} 
-      />
+      <View style={styles.thumbWrap}>
+        <Image
+          source={{ uri: item.cover_url || 'https://via.placeholder.com/240' }}
+          style={styles.coverImage}
+        />
+        {playingSongId === item.song_id ? <View style={styles.playingDot} /> : null}
+      </View>
+
       <Text style={styles.songTitle} numberOfLines={1}>{item.title}</Text>
       <Text style={styles.artistName} numberOfLines={1}>{item.artist_name}</Text>
     </TouchableOpacity>
   );
+
+  // cleanup audio on unmount
+  useEffect(() => {
+    return () => {
+      if (sound) {
+        try {
+          sound.unloadAsync();
+        } catch (e) {
+          // ignore
+        }
+      }
+    };
+  }, [sound]);
+
+  // Play a song using Expo Audio
+  const playSong = async (song: Song) => {
+    try {
+      // If same song tapped, toggle pause/play
+      if (playingSongId === song.song_id && sound) {
+        const status = await sound.getStatusAsync();
+        if (status.isPlaying) {
+          await sound.pauseAsync();
+        } else {
+          await sound.playAsync();
+        }
+        return;
+      }
+
+      // Unload previous sound
+      if (sound) {
+        try {
+          await sound.unloadAsync();
+        } catch (e) {
+          // ignore
+        }
+        setSound(null);
+        setPlayingSongId(null);
+      }
+
+      // Create new sound and play
+      const { sound: newSound, status } = await Audio.Sound.createAsync(
+        { uri: song.audio_url || 'https://interactive-examples.mdn.mozilla.net/media/cc0-audio/t-rex-roar.mp3' },
+        { shouldPlay: true }
+      );
+
+      setSound(newSound);
+      setPlayingSongId(song.song_id);
+
+      // Listen for playback end to clear state
+      newSound.setOnPlaybackStatusUpdate((st: any) => {
+        if (st.isLoaded && st.didJustFinish) {
+          setPlayingSongId(null);
+        }
+      });
+    } catch (error) {
+      console.error('Playback error:', error);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -100,16 +165,20 @@ export default function HomeScreen() {
                   {/* Lặp qua từng Thể loại lấy từ CSDL MySQL */}
                   {genresData.map((genre) => (
                     <View key={genre.genre_id} style={styles.sectionContainer}>
-                      <Text style={styles.sectionTitle}>{genre.genre_name}</Text>
-                      
-                      {/* Danh sách bài hát dạng HÀNG NGANG */}
+                      <View style={styles.sectionHeader}>
+                        <Text style={styles.sectionTitle}>{genre.genre_name}</Text>
+                        <TouchableOpacity style={styles.seeAll} onPress={() => console.log('See all', genre.genre_name)}>
+                          <Text style={styles.seeAllText}>Xem tất cả</Text>
+                        </TouchableOpacity>
+                      </View>
+
                       <FlatList
                         data={genre.songs}
                         renderItem={renderSongItem}
                         keyExtractor={(item) => item.song_id.toString()}
-                        horizontal={true} // Bật cuộn ngang
+                        horizontal={true}
                         showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={{ gap: 12 }}
+                        contentContainerStyle={styles.horizontalList}
                       />
                     </View>
                   ))}
@@ -194,4 +263,30 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   placeholder: { color: '#94A3B8', padding: 8 },
+  playingDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 10,
+    backgroundColor: '#4EA8FF',
+    position: 'absolute',
+    top: 6,
+    right: 6,
+  },
+  thumbWrap: {
+    width: 120,
+    height: 120,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#0F1724',
+    marginBottom: 8,
+    elevation: 2,
+  },
+  horizontalList: {
+    paddingVertical: 4,
+    paddingRight: 8,
+    gap: 12,
+  },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  seeAll: { paddingHorizontal: 8, paddingVertical: 4 },
+  seeAllText: { color: '#94A3B8', fontSize: 13 },
 });
