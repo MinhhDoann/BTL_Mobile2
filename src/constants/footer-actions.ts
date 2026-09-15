@@ -41,12 +41,11 @@ export function useFooterActions(activeTab: string = 'home'): FooterAction[] {
       },
     },
     {
-      title: 'Tạo',
-      icon: 'plus',
-      active: activeTab === 'create',
+      title: 'Admin',
+      icon: 'shield.fill',
+      active: activeTab === 'admin',
       onPress: () => {
-        console.log('Chuyển tới Tạo');
-        // router.push('/create');
+        router.push('/admin' as any);
       },
     },
   ];

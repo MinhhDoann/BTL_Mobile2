@@ -41,6 +41,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     minHeight: 56,
+    paddingHorizontal: 12,
+    backgroundColor: '#0B1120',
   },
   side: {
     alignItems: 'flex-start',

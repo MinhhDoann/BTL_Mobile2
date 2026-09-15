@@ -1,16 +1,17 @@
 import { AppHeader } from '@/src/components/ui/app-header';
 import { Footer } from '@/src/components/ui/footer';
 import { useFooterActions } from '@/src/constants/footer-actions';
+import { audioPlayer } from '@/src/lib/audio-player';
+import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
-  Image,
-  ScrollView,
+  Image, Platform, ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -27,13 +28,17 @@ interface GenreWithSongs {
   songs: Song[];
 }
 
+const API_BASE = Platform.OS === 'web' ? 'http://localhost:3000' : 'http://10.88.114.200:3000';
+
 export default function HomeScreen() {
+  const router = useRouter();
   const footerActions = useFooterActions('home');
   const [tab, setTab] = useState<'all' | 'music' | 'podcast'>('all');
   
   // State lưu danh sách dữ liệu từ CSDL
   const [genresData, setGenresData] = useState<GenreWithSongs[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [playingSongId, setPlayingSongId] = useState<number | null>(null);
 
   // Gọi API lấy danh sách thể loại và bài hát khi mở màn hình
   useEffect(() => {
@@ -42,7 +47,7 @@ export default function HomeScreen() {
 
   const fetchDataFromMySQL = async () => {
     try {
-      const response = await fetch('http://localhost:3000/api/home-data'); 
+      const response = await fetch(`${API_BASE}/api/home-data`); 
       const data = await response.json();
       setGenresData(data);
     } catch (error) {
@@ -54,18 +59,36 @@ export default function HomeScreen() {
 
   // Component render từng card bài hát theo hàng ngang
   const renderSongItem = ({ item }: { item: Song }) => (
-    <TouchableOpacity 
-      style={styles.songCard} 
-      onPress={() => console.log('Phát bài hát:', item.title)}
+    <TouchableOpacity
+      style={styles.songCard}
+      onPress={() => {
+        router.push({ pathname: '/song-detail', params: { songId: String(item.song_id) } });
+      }}
     >
-      <Image 
-        source={{ uri: item.cover_url || 'https://via.placeholder.com/120' }} 
-        style={styles.coverImage} 
-      />
+      <View style={styles.thumbWrap}>
+        <Image
+          source={{ uri: item.cover_url || 'https://via.placeholder.com/240' }}
+          style={styles.coverImage}
+        />
+        {playingSongId === item.song_id ? <View style={styles.playingDot} /> : null}
+      </View>
+
       <Text style={styles.songTitle} numberOfLines={1}>{item.title}</Text>
       <Text style={styles.artistName} numberOfLines={1}>{item.artist_name}</Text>
     </TouchableOpacity>
   );
+
+  useEffect(() => {
+    const unsubscribe = audioPlayer.subscribe((state) => {
+      setPlayingSongId(state.songId);
+    });
+
+    return unsubscribe;
+  }, []);
+
+  const playSong = async (song: Song) => {
+    await audioPlayer.playTrack({ songId: song.song_id, audioUrl: song.audio_url });
+  };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -100,16 +123,20 @@ export default function HomeScreen() {
                   {/* Lặp qua từng Thể loại lấy từ CSDL MySQL */}
                   {genresData.map((genre) => (
                     <View key={genre.genre_id} style={styles.sectionContainer}>
-                      <Text style={styles.sectionTitle}>{genre.genre_name}</Text>
-                      
-                      {/* Danh sách bài hát dạng HÀNG NGANG */}
+                      <View style={styles.sectionHeader}>
+                        <Text style={styles.sectionTitle}>{genre.genre_name}</Text>
+                        <TouchableOpacity style={styles.seeAll} onPress={() => console.log('See all', genre.genre_name)}>
+                          <Text style={styles.seeAllText}>Xem tất cả</Text>
+                        </TouchableOpacity>
+                      </View>
+
                       <FlatList
                         data={genre.songs}
                         renderItem={renderSongItem}
                         keyExtractor={(item) => item.song_id.toString()}
-                        horizontal={true} // Bật cuộn ngang
+                        horizontal={true}
                         showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={{ gap: 12 }}
+                        contentContainerStyle={styles.horizontalList}
                       />
                     </View>
                   ))}
@@ -194,4 +221,30 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   placeholder: { color: '#94A3B8', padding: 8 },
+  playingDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 10,
+    backgroundColor: '#4EA8FF',
+    position: 'absolute',
+    top: 6,
+    right: 6,
+  },
+  thumbWrap: {
+    width: 120,
+    height: 120,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#0F1724',
+    marginBottom: 8,
+    elevation: 2,
+  },
+  horizontalList: {
+    paddingVertical: 4,
+    paddingRight: 8,
+    gap: 12,
+  },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  seeAll: { paddingHorizontal: 8, paddingVertical: 4 },
+  seeAllText: { color: '#94A3B8', fontSize: 13 },
 });
