@@ -1,6 +1,10 @@
 const express = require('express');
-const mysql = require('mysql2/promise');
 const cors = require('cors');
+const db = require('./config/db');
+
+const songRoutes = require('./routes/songRoutes');
+const libraryRoutes = require('./routes/libraryRoutes');
+const homeRoutes = require('./routes/homeRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -8,16 +12,7 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-const db = mysql.createPool({
-  host: 'localhost',
-  user: 'root',
-  password: '352001',
-  database: 'mobile2',
-  waitForConnections: true,
-  connectionLimit: 10,
-  charset: 'utf8mb4',
-});
-
+// Healthcheck endpoint
 app.get('/health', async (req, res) => {
   try {
     const [rows] = await db.query('SELECT 1 AS ok');
@@ -27,61 +22,11 @@ app.get('/health', async (req, res) => {
   }
 });
 
-app.get('/api/home-data', async (req, res) => {
-  try {
-    const [rows] = await db.query(`
-      SELECT
-        g.genre_id,
-        g.name AS genre_name,
-        s.song_id,
-        s.title,
-        s.cover_url,
-        s.audio_url,
-        a.name AS artist_name
-      FROM genres g
-      LEFT JOIN song_genres sg ON g.genre_id = sg.genre_id
-      LEFT JOIN songs s ON sg.song_id = s.song_id
-      LEFT JOIN artists a ON s.artist_id = a.artist_id
-      ORDER BY g.genre_id, s.song_id
-    `);
-
-    if (!rows.length) {
-      return res.json([]);
-    }
-
-    const genresMap = {};
-    rows.forEach((row) => {
-      if (!genresMap[row.genre_id]) {
-        genresMap[row.genre_id] = {
-          genre_id: row.genre_id,
-          genre_name: row.genre_name,
-          songs: [],
-        };
-      }
-
-      if (row.song_id) {
-        genresMap[row.genre_id].songs.push({
-          song_id: row.song_id,
-          title: row.title,
-          cover_url: row.cover_url,
-          audio_url: row.audio_url,
-          artist_name: row.artist_name,
-        });
-      }
-    });
-
-    return res.json(Object.values(genresMap));
-  } catch (error) {
-    console.error('LỖI SQL:', error);
-    return res.status(500).json({
-      error: 'Lỗi máy chủ',
-      details: error.message,
-    });
-  }
-});
+// Đăng ký các Route API Backend
+app.use('/api/songs', songRoutes);
+app.use('/api/library', libraryRoutes);
+app.use('/api/home-data', homeRoutes);
 
 app.listen(PORT, () => {
-  console.log(`Server API đang chạy tại: http://localhost:${PORT}`);
+  console.log(`🚀 Backend Server đang chạy tại: http://localhost:${PORT}`);
 });
-
-

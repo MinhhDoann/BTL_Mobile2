@@ -18,7 +18,6 @@ export function useFooterActions(activeTab: string = 'home'): FooterAction[] {
       icon: 'magnifyingglass',
       active: activeTab === 'search',
       onPress: () => {
-        console.log('Chuyển tới Tìm kiếm');
         router.push('/search' as any);
       },
     },
@@ -27,8 +26,7 @@ export function useFooterActions(activeTab: string = 'home'): FooterAction[] {
       icon: 'books.vertical',
       active: activeTab === 'library',
       onPress: () => {
-        console.log('Chuyển tới Thư viện');
-        // router.push('/library');
+        router.push('/library' as any);
       },
     },
     {
@@ -37,7 +35,6 @@ export function useFooterActions(activeTab: string = 'home'): FooterAction[] {
       active: activeTab === 'register',
       onPress: () => {
         console.log('Chuyển tới Đăng ký');
-        // router.push('/register');
       },
     },
     {
@@ -46,7 +43,6 @@ export function useFooterActions(activeTab: string = 'home'): FooterAction[] {
       active: activeTab === 'create',
       onPress: () => {
         console.log('Chuyển tới Tạo');
-        // router.push('/create');
       },
     },
   ];

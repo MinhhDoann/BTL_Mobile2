@@ -124,22 +124,28 @@ INSERT INTO users (username, email, password_hash, role, is_premium) VALUES
 
 -- Chèn dữ liệu Nghệ sĩ
 INSERT INTO artists (name, bio, avatar_url) VALUES 
-('Sơn Tùng M-TP', 'Ca sĩ, nhạc sĩ người Việt Nam.', 'https://example.com/avatars/sontung.jpg'),
-('Đen Vâu', 'Rapper người Việt Nam.', 'https://example.com/avatars/denvau.jpg'),
-('Bích Phương', 'Nữ ca sĩ với nhiều bản hit Pop Ballad.', 'https://example.com/avatars/bichphuong.jpg'),
-('Hà Anh Tuấn', 'Nam ca sĩ nổi tiếng với các live concert chất lượng.', 'https://example.com/avatars/haanhtuan.jpg'),
-('W/n', 'Nhà sản xuất âm nhạc trẻ với các ca khúc Lofi triệu view.', 'https://example.com/avatars/wn.jpg');
+('Sơn Tùng M-TP', 'Ca sĩ, nhạc sĩ người Việt Nam.', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80'),
+('Đen Vâu', 'Rapper người Việt Nam.', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80'),
+('Bích Phương', 'Nữ ca sĩ với nhiều bản hit Pop Ballad.', 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=300&q=80'),
+('Hà Anh Tuấn', 'Nam ca sĩ nổi tiếng với các live concert chất lượng.', 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=300&q=80'),
+('W/n', 'Nhà sản xuất âm nhạc trẻ với các ca khúc Lofi triệu view.', 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=300&q=80'),
+('Phương Ly', 'Nữ ca sĩ vạn người mê với các bản hit ngọt ngào.', 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=300&q=80'),
+('Olew', 'Ca sĩ, nhạc sĩ trẻ tài năng với siêu hit Pháo Hoa.', 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=300&q=80');
 
 -- Chèn dữ liệu Album
 INSERT INTO albums (title, cover_url, release_date, artist_id) VALUES 
-('Chúng Ta', 'https://example.com/covers/chungta.jpg', '2020-12-20', 1);
+('Chúng Ta', 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=300&q=80', '2020-12-20', 1);
 
--- Chèn dữ liệu Bài hát (Đã bổ sung đủ các cột thiếu cho bài Dramatic và Truyện Ngắn)
+-- Chèn dữ liệu Bài hát
 INSERT INTO songs (title, duration, audio_url, cover_url, play_count, artist_id, album_id) VALUES 
-('Chúng Ta Của Hiện Tại', 302, 'https://zingmp3.vn/bai-hat/Chung-Ta-Cua-Hien-Tai-Son-Tung-M-TP/sGk6Iot5IvCZ.html', 'https://example.com/covers/chungta.jpg', 1500, 1, 1),
-('Nấu Ăn Cho Em', 245, 'https://example.com/audio/nau-an-cho-em.mp3', 'https://example.com/covers/nauanchoem.jpg', 2300, 2, NULL),
-('Dramatic', 210, 'https://example.com/audio/dramatic.mp3', 'https://example.com/covers/dramatic.jpg', 500, 3, NULL),
-('Truyện Ngắn', 250, 'https://example.com/audio/truyen-ngan.mp3', 'https://example.com/covers/truyenngan.jpg', 800, 4, NULL);
+('Anh Là Ai', 210, 'https://github.com/MinhhDoann/BTL_Mobile2/raw/refs/heads/SongLink/nguoidautien_jukysan.mp3', 'https://images.unsplash.com/photo-1518609878373-06d740f60d8b?auto=format&fit=crop&w=300&q=80', 3200, 6, NULL),
+('Rồi Ta Sẽ Ngắm Pháo Hoa Cùng Nhau', 278, 'https://github.com/MinhhDoann/BTL_Mobile2/raw/refs/heads/SongLink/nguoidautien_emxinhsayhi.mp3', 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=300&q=80', 4500, 7, NULL),
+('Chúng Ta Của Hiện Tại', 302, 'https://zingmp3.vn/bai-hat/Chung-Ta-Cua-Hien-Tai-Son-Tung-M-TP/sGk6Iot5IvCZ.html', 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=300&q=80', 1500, 1, 1),
+('Nấu Ăn Cho Em', 245, 'https://example.com/audio/nau-an-cho-em.mp3', 'https://images.unsplash.com/photo-1465847899084-d164df4dedc6?auto=format&fit=crop&w=300&q=80', 2300, 2, NULL),
+('Dramatic', 210, 'https://example.com/audio/dramatic.mp3', 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=300&q=80', 500, 3, NULL),
+('Truyện Ngắn', 250, 'https://example.com/audio/truyen-ngan.mp3', 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=300&q=80', 800, 4, NULL),
+('Người đầu tiên', 232, 'https://github.com/MinhhDoann/BTL_Mobile2/raw/refs/heads/SongLink/nguoidautien_emxinhsayhi.mp3', 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=300&q=80', 1500, 1, 1),
+('Người đầu tiên (Acoustic)', 215, 'https://github.com/MinhhDoann/BTL_Mobile2/raw/refs/heads/SongLink/nguoidautien_jukysan.mp3', 'https://images.unsplash.com/photo-1459749411175-04bf5292ceea?auto=format&fit=crop&w=300&q=80', 1200, 1, 1);
 
 -- Chèn Thể loại cho bài hát
 INSERT INTO song_genres (song_id, genre_id) VALUES 
@@ -206,3 +212,4 @@ FROM genres g
 JOIN song_genres sg ON g.genre_id = sg.genre_id
 JOIN songs s ON sg.song_id = s.song_id
 JOIN artists a ON s.artist_id = a.artist_id;
+

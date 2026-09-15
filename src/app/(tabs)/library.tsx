@@ -1,7 +1,10 @@
 import { AppHeader } from '@/src/components/ui/app-header';
 import { Footer } from '@/src/components/ui/footer';
+import { PlayingTracker } from '@/src/components/ui/playing-tracker';
 import { SongData, SongItem } from '@/src/components/ui/song-item';
+import { API_BASE_URL } from '@/src/constants/api';
 import { useFooterActions } from '@/src/constants/footer-actions';
+import { usePlayer } from '@/src/context/player-context';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -32,15 +35,66 @@ interface Artist {
   avatar_url?: string;
 }
 
+// Khởi tạo danh sách bài hát mặc định hiển thị lập tức
+const INITIAL_SONGS: SongData[] = [
+  {
+    song_id: 1,
+    title: 'Anh Là Ai',
+    artist_name: 'Phương Ly',
+    cover_url: 'https://images.unsplash.com/photo-1518609878373-06d740f60d8b?auto=format&fit=crop&w=300&q=80',
+    audio_url: 'https://github.com/MinhhDoann/BTL_Mobile2/raw/refs/heads/SongLink/nguoidautien_jukysan.mp3',
+    duration: 210,
+  },
+  {
+    song_id: 2,
+    title: 'Rồi Ta Sẽ Ngắm Pháo Hoa Cùng Nhau',
+    artist_name: 'Olew',
+    cover_url: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=300&q=80',
+    audio_url: 'https://github.com/MinhhDoann/BTL_Mobile2/raw/refs/heads/SongLink/nguoidautien_emxinhsayhi.mp3',
+    duration: 278,
+  },
+  {
+    song_id: 3,
+    title: 'Chúng Ta Của Hiện Tại',
+    artist_name: 'Sơn Tùng M-TP',
+    cover_url: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=300&q=80',
+    duration: 302,
+  },
+  {
+    song_id: 4,
+    title: 'Nấu Ăn Cho Em',
+    artist_name: 'Đen Vâu',
+    cover_url: 'https://images.unsplash.com/photo-1465847899084-d164df4dedc6?auto=format&fit=crop&w=300&q=80',
+    duration: 245,
+  },
+  {
+    song_id: 5,
+    title: 'Dramatic',
+    artist_name: 'Bích Phương',
+    cover_url: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=300&q=80',
+    duration: 210,
+  },
+  {
+    song_id: 6,
+    title: 'Truyện Ngắn',
+    artist_name: 'Hà Anh Tuấn',
+    cover_url: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=300&q=80',
+    duration: 250,
+  },
+];
+
 export default function LibraryScreen() {
   const footerActions = useFooterActions('library');
-  const [filterTab, setFilterTab] = useState<'all' | 'playlists' | 'artists'>('all');
+  const { currentSong, playSong } = usePlayer();
+
+  const [filterTab, setFilterTab] = useState<'all' | 'songs' | 'playlists' | 'artists'>('all');
   
-  // Dữ liệu thư viện
+  // State lưu danh sách bài hát từ CSDL MySQL (có sẵn dữ liệu khởi tạo)
+  const [songs, setSongs] = useState<SongData[]>(INITIAL_SONGS);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [artists, setArtists] = useState<Artist[]>([]);
-  const [likedCount, setLikedCount] = useState<number>(0);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [likedCount, setLikedCount] = useState<number>(INITIAL_SONGS.length);
+  const [loading, setLoading] = useState<boolean>(false);
 
   // Xem chi tiết playlist hoặc Bài hát yêu thích
   const [selectedPlaylistSongs, setSelectedPlaylistSongs] = useState<SongData[] | null>(null);
@@ -52,50 +106,57 @@ export default function LibraryScreen() {
 
   useEffect(() => {
     fetchLibraryData();
+    fetchAllSongsFromMySQL();
   }, []);
 
-  const fetchLibraryData = async () => {
-    setLoading(true);
+  // 1. Lấy dữ liệu danh sách bài hát từ BE MySQL (/api/songs)
+  const fetchAllSongsFromMySQL = async () => {
     try {
-      const response = await fetch('http://localhost:3000/api/library');
+      const response = await fetch(`${API_BASE_URL}/api/songs`);
       const data = await response.json();
-      setPlaylists(data.playlists || []);
-      setLikedCount(data.liked_songs_count || 0);
-      setArtists(data.followed_artists || []);
+      if (Array.isArray(data) && data.length > 0) {
+        setSongs(data);
+      }
     } catch (error) {
-      console.error('Lỗi lấy dữ liệu thư viện:', error);
-    } finally {
-      setLoading(false);
+      console.log('Đang dùng danh sách bài hát sẵn có:', error);
     }
   };
 
-  // Mở bài hát yêu thích (Liked Songs)
+  // 2. Lấy dữ liệu tổng quan Thư viện từ BE MySQL (/api/library)
+  const fetchLibraryData = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/library`);
+      const data = await response.json();
+      if (data.playlists) setPlaylists(data.playlists);
+      if (data.liked_songs_count) setLikedCount(data.liked_songs_count);
+      if (data.followed_artists) setArtists(data.followed_artists);
+    } catch (error) {
+      console.log('Lỗi kết nối API thư viện:', error);
+    }
+  };
+
+  // Mở danh sách bài hát đã thích
   const openLikedSongs = async () => {
     try {
-      setLoading(true);
-      const response = await fetch('http://localhost:3000/api/library/favorites');
-      const songs = await response.json();
-      setSelectedPlaylistSongs(songs);
+      const response = await fetch(`${API_BASE_URL}/api/library/favorites`);
+      const data = await response.json();
+      setSelectedPlaylistSongs(Array.isArray(data) && data.length > 0 ? data : songs);
       setViewingTitle('Bài Hát Đã Thích');
     } catch (error) {
-      console.error('Lỗi lấy danh sách bài hát yêu thích:', error);
-    } finally {
-      setLoading(false);
+      setSelectedPlaylistSongs(songs);
+      setViewingTitle('Bài Hát Đã Thích');
     }
   };
 
   // Mở chi tiết 1 Playlist
   const openPlaylist = async (playlist: Playlist) => {
     try {
-      setLoading(true);
-      const response = await fetch(`http://localhost:3000/api/library/playlist/${playlist.playlist_id}`);
+      const response = await fetch(`${API_BASE_URL}/api/library/playlist/${playlist.playlist_id}`);
       const data = await response.json();
       setSelectedPlaylistSongs(data.songs || []);
       setViewingTitle(playlist.title);
     } catch (error) {
       console.error('Lỗi lấy chi tiết playlist:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -107,7 +168,7 @@ export default function LibraryScreen() {
     }
 
     try {
-      const response = await fetch('http://localhost:3000/api/library/playlist', {
+      const response = await fetch(`${API_BASE_URL}/api/library/playlist`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: newPlaylistTitle }),
@@ -117,16 +178,16 @@ export default function LibraryScreen() {
         Alert.alert('Thành công', `Đã tạo danh sách phát: ${newPlaylistTitle}`);
         setNewPlaylistTitle('');
         setModalVisible(false);
-        fetchLibraryData(); // Tải lại thư viện
+        fetchLibraryData();
       }
     } catch (error) {
       console.error('Lỗi tạo playlist:', error);
     }
   };
 
-  // Phát bài hát khi bấm vào SongItem
+  // Kích hoạt phát bài hát khi chọn
   const handlePlaySong = (song: SongData) => {
-    Alert.alert('Phát Nhạc', `Đang phát bài: ${song.title} - ${song.artist_name}`);
+    playSong(song, songs);
   };
 
   return (
@@ -142,7 +203,7 @@ export default function LibraryScreen() {
         />
 
         <View style={styles.content}>
-          {/* Nút hành động và lọc */}
+          {/* Thanh Filter Bar */}
           {!selectedPlaylistSongs && (
             <View style={styles.headerBar}>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.menu}>
@@ -151,6 +212,13 @@ export default function LibraryScreen() {
                   style={[styles.chip, filterTab === 'all' && styles.chipActive]}
                 >
                   <Text style={[styles.chipText, filterTab === 'all' && styles.chipTextActive]}>Tất cả</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => setFilterTab('songs')}
+                  style={[styles.chip, filterTab === 'songs' && styles.chipActive]}
+                >
+                  <Text style={[styles.chipText, filterTab === 'songs' && styles.chipTextActive]}>Bài hát</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -177,22 +245,43 @@ export default function LibraryScreen() {
           {loading ? (
             <ActivityIndicator size="large" color="#1DB954" style={{ marginTop: 40 }} />
           ) : selectedPlaylistSongs ? (
-            /* DANH SÁCH BÀI HÁT TRONG PLAYLIST HOẶC BÀI HÁT YÊU THÍCH */
+            /* CHI TIẾT PLAYLIST HOẶC BÀI HÁT ĐÃ THÍCH */
             <FlatList
               data={selectedPlaylistSongs}
               keyExtractor={(item) => item.song_id.toString()}
               contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 12 }}
               renderItem={({ item }) => (
-                <SongItem song={item} onPress={handlePlaySong} style={{ marginBottom: 8 }} />
+                <SongItem
+                  song={item}
+                  onPress={handlePlaySong}
+                  isCurrentPlaying={currentSong?.song_id === item.song_id}
+                  style={{ marginBottom: 8 }}
+                />
               )}
               ListEmptyComponent={
                 <Text style={styles.emptyText}>Chưa có bài hát nào trong mục này</Text>
               }
             />
           ) : (
-            /* TỔNG QUAN THƯ VIỆN: BÀI HÁT YÊU THÍCH + PLAYLISTS + NGHỆ SĨ */
+            /* TỔNG QUAN THƯ VIỆN & COMPONENT BÀI HÁT TỪ MYSQL */
             <ScrollView style={styles.scrollArea}>
-              {/* 1. MỤC BÀI HÁT ĐÃ THÍCH (LIKED SONGS) */}
+              {/* 1. SECTIONS BÀI HÁT (SONG ITEM COMPONENTS TỪ CSDL MYSQL) */}
+              {(filterTab === 'all' || filterTab === 'songs') && (
+                <View style={styles.sectionContainer}>
+                  <Text style={styles.sectionHeaderTitle}>Danh Sách Bài Hát (Songs)</Text>
+                  {songs.map((songItem) => (
+                    <SongItem
+                      key={songItem.song_id}
+                      song={songItem}
+                      onPress={handlePlaySong}
+                      isCurrentPlaying={currentSong?.song_id === songItem.song_id}
+                      style={{ marginBottom: 8 }}
+                    />
+                  ))}
+                </View>
+              )}
+
+              {/* 2. MỤC BÀI HÁT ĐÃ THÍCH (LIKED SONGS) */}
               {(filterTab === 'all' || filterTab === 'playlists') && (
                 <TouchableOpacity style={styles.rowItem} onPress={openLikedSongs}>
                   <View style={styles.heartGradient}>
@@ -205,13 +294,13 @@ export default function LibraryScreen() {
                 </TouchableOpacity>
               )}
 
-              {/* 2. DANH SÁCH PLAYLISTS CỦA USER */}
+              {/* 3. DANH SÁCH PLAYLISTS CỦA USER */}
               {(filterTab === 'all' || filterTab === 'playlists') &&
                 playlists.map((pl) => (
                   <TouchableOpacity key={pl.playlist_id} style={styles.rowItem} onPress={() => openPlaylist(pl)}>
                     <Image
                       source={{
-                        uri: pl.cover_url || 'https://via.placeholder.com/100/1E293B/FFFFFF?text=Playlist',
+                        uri: pl.cover_url || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=300&q=80',
                       }}
                       style={styles.playlistCover}
                     />
@@ -222,13 +311,13 @@ export default function LibraryScreen() {
                   </TouchableOpacity>
                 ))}
 
-              {/* 3. DANH SÁCH NGHỆ SĨ THEO DÕI */}
+              {/* 4. DANH SÁCH NGHỆ SĨ THEO DÕI */}
               {(filterTab === 'all' || filterTab === 'artists') &&
                 artists.map((artist) => (
                   <TouchableOpacity key={artist.artist_id} style={styles.rowItem}>
                     <Image
                       source={{
-                        uri: artist.avatar_url || 'https://via.placeholder.com/100/1E293B/FFFFFF?text=Artist',
+                        uri: artist.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80',
                       }}
                       style={styles.artistAvatar}
                     />
@@ -266,6 +355,10 @@ export default function LibraryScreen() {
           </View>
         </Modal>
 
+        {/* ================= PLAYING TRACKING BAR Ở DƯỚI (ẢNH MẪU 2) ================= */}
+        <PlayingTracker />
+
+        {/* NAV FOOTER */}
         <Footer actions={footerActions} />
       </View>
     </SafeAreaView>
@@ -302,33 +395,42 @@ const styles = StyleSheet.create({
   },
   addButtonText: { color: '#FFFFFF', fontWeight: '600', fontSize: 13 },
   scrollArea: { flex: 1, paddingHorizontal: 16 },
+  sectionContainer: {
+    marginVertical: 12,
+  },
+  sectionHeaderTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
   rowItem: {
     flexDirection: 'row',
     alignItems: 'center',
     marginVertical: 8,
   },
   heartGradient: {
-    width: 56,
-    height: 56,
+    width: 52,
+    height: 52,
     borderRadius: 8,
     backgroundColor: '#4C1D95',
     justifyContent: 'center',
     alignItems: 'center',
   },
   playlistCover: {
-    width: 56,
-    height: 56,
+    width: 52,
+    height: 52,
     borderRadius: 8,
     backgroundColor: '#1E293B',
   },
   artistAvatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     backgroundColor: '#1E293B',
   },
   rowTextContainer: { marginLeft: 14, flex: 1 },
-  rowTitle: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
+  rowTitle: { color: '#FFFFFF', fontSize: 15, fontWeight: '600' },
   rowSubtitle: { color: '#94A3B8', fontSize: 13, marginTop: 2 },
   emptyText: { color: '#64748B', textAlign: 'center', marginTop: 40 },
   modalOverlay: {

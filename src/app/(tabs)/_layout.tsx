@@ -4,12 +4,11 @@ import React from 'react';
 import { HapticTab } from '@/src/components/haptic-tab';
 import { IconSymbol } from '@/src/components/ui/icon-symbol';
 
-
 export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#A78BFA',
+        tabBarActiveTintColor: '#1DB954',
         tabBarInactiveTintColor: '#64748B',
         tabBarStyle: { display: 'none' },
         headerShown: false,
@@ -18,8 +17,22 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
+          title: 'Trang chủ',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="search"
+        options={{
+          title: 'Tìm kiếm',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="magnifyingglass" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="library"
+        options={{
+          title: 'Thư viện',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="books.vertical" color={color} />,
         }}
       />
       <Tabs.Screen

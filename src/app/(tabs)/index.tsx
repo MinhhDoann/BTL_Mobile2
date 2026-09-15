@@ -1,5 +1,6 @@
 import { AppHeader } from '@/src/components/ui/app-header';
 import { Footer } from '@/src/components/ui/footer';
+import { API_BASE_URL } from '@/src/constants/api';
 import { useFooterActions } from '@/src/constants/footer-actions';
 import React, { useEffect, useState } from 'react';
 import {
@@ -42,7 +43,7 @@ export default function HomeScreen() {
 
   const fetchDataFromMySQL = async () => {
     try {
-      const response = await fetch('http://localhost:3000/api/home-data'); 
+      const response = await fetch(`${API_BASE_URL}/api/home-data`); 
       const data = await response.json();
       setGenresData(data);
     } catch (error) {
@@ -59,7 +60,7 @@ export default function HomeScreen() {
       onPress={() => console.log('Phát bài hát:', item.title)}
     >
       <Image 
-        source={{ uri: item.cover_url || 'https://via.placeholder.com/120' }} 
+        source={{ uri: item.cover_url || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=300&q=80' }} 
         style={styles.coverImage} 
       />
       <Text style={styles.songTitle} numberOfLines={1}>{item.title}</Text>
@@ -107,7 +108,7 @@ export default function HomeScreen() {
                         data={genre.songs}
                         renderItem={renderSongItem}
                         keyExtractor={(item) => item.song_id.toString()}
-                        horizontal={true} // Bật cuộn ngang
+                        horizontal={true}
                         showsHorizontalScrollIndicator={false}
                         contentContainerStyle={{ gap: 12 }}
                       />
@@ -172,7 +173,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold', 
     marginBottom: 12 
   },
-  // Style cho Card bài hát cuộn ngang
   songCard: {
     width: 120,
   },
