@@ -1,17 +1,17 @@
 import { AppHeader } from '@/src/components/ui/app-header';
 import { Footer } from '@/src/components/ui/footer';
 import { useFooterActions } from '@/src/constants/footer-actions';
-import { Audio } from 'expo-av';
+import { audioPlayer } from '@/src/lib/audio-player';
+import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
-  Image,
-  ScrollView,
+  Image, Platform, ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -28,14 +28,16 @@ interface GenreWithSongs {
   songs: Song[];
 }
 
+const API_BASE = Platform.OS === 'web' ? 'http://localhost:3000' : 'http://10.88.114.200:3000';
+
 export default function HomeScreen() {
+  const router = useRouter();
   const footerActions = useFooterActions('home');
   const [tab, setTab] = useState<'all' | 'music' | 'podcast'>('all');
   
   // State lưu danh sách dữ liệu từ CSDL
   const [genresData, setGenresData] = useState<GenreWithSongs[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [sound, setSound] = useState<any>(null);
   const [playingSongId, setPlayingSongId] = useState<number | null>(null);
 
   // Gọi API lấy danh sách thể loại và bài hát khi mở màn hình
@@ -45,7 +47,7 @@ export default function HomeScreen() {
 
   const fetchDataFromMySQL = async () => {
     try {
-      const response = await fetch('http://localhost:3000/api/home-data'); 
+      const response = await fetch(`${API_BASE}/api/home-data`); 
       const data = await response.json();
       setGenresData(data);
     } catch (error) {
@@ -59,7 +61,9 @@ export default function HomeScreen() {
   const renderSongItem = ({ item }: { item: Song }) => (
     <TouchableOpacity
       style={styles.songCard}
-      onPress={() => playSong(item)}
+      onPress={() => {
+        router.push({ pathname: '/song-detail', params: { songId: String(item.song_id) } });
+      }}
     >
       <View style={styles.thumbWrap}>
         <Image
@@ -74,62 +78,16 @@ export default function HomeScreen() {
     </TouchableOpacity>
   );
 
-  // cleanup audio on unmount
   useEffect(() => {
-    return () => {
-      if (sound) {
-        try {
-          sound.unloadAsync();
-        } catch (e) {
-          // ignore
-        }
-      }
-    };
-  }, [sound]);
+    const unsubscribe = audioPlayer.subscribe((state) => {
+      setPlayingSongId(state.songId);
+    });
 
-  // Play a song using Expo Audio
+    return unsubscribe;
+  }, []);
+
   const playSong = async (song: Song) => {
-    try {
-      // If same song tapped, toggle pause/play
-      if (playingSongId === song.song_id && sound) {
-        const status = await sound.getStatusAsync();
-        if (status.isPlaying) {
-          await sound.pauseAsync();
-        } else {
-          await sound.playAsync();
-        }
-        return;
-      }
-
-      // Unload previous sound
-      if (sound) {
-        try {
-          await sound.unloadAsync();
-        } catch (e) {
-          // ignore
-        }
-        setSound(null);
-        setPlayingSongId(null);
-      }
-
-      // Create new sound and play
-      const { sound: newSound, status } = await Audio.Sound.createAsync(
-        { uri: song.audio_url || 'https://interactive-examples.mdn.mozilla.net/media/cc0-audio/t-rex-roar.mp3' },
-        { shouldPlay: true }
-      );
-
-      setSound(newSound);
-      setPlayingSongId(song.song_id);
-
-      // Listen for playback end to clear state
-      newSound.setOnPlaybackStatusUpdate((st: any) => {
-        if (st.isLoaded && st.didJustFinish) {
-          setPlayingSongId(null);
-        }
-      });
-    } catch (error) {
-      console.error('Playback error:', error);
-    }
+    await audioPlayer.playTrack({ songId: song.song_id, audioUrl: song.audio_url });
   };
 
   return (
