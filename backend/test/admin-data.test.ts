@@ -1,30 +1,49 @@
-const { test } = require('node:test');
-const assert = require('node:assert/strict');
-const express = require('express');
-const { createAdminDataRouter, normalize, protectAdmin, transaction } = require('./admin-data');
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import express from 'express';
+import { AddressInfo } from 'node:net';
+import { createAdminDataRouter } from '../src/routes/admin-data.routes';
+import { normalize, protectAdmin, transaction } from '../src/services/admin-data.service';
 
-async function harness(t, query, user = { user_id: 1, role: 'admin' }) {
-  const events = [];
+async function harness(t: any, query: (sql: string, args?: any[]) => Promise<any>, user: any = { user_id: 1, role: 'admin' }) {
+  const events: any[] = [];
   const connection = {
-    query: async (sql, args = []) => { events.push({ sql, args }); return query(sql, args); },
-    beginTransaction: async () => events.push('begin'), commit: async () => events.push('commit'),
-    rollback: async () => events.push('rollback'), release: () => events.push('release'),
+    query: async (sql: string, args: any[] = []) => {
+      events.push({ sql, args });
+      return query(sql, args);
+    },
+    beginTransaction: async () => events.push('begin'),
+    commit: async () => events.push('commit'),
+    rollback: async () => events.push('rollback'),
+    release: () => events.push('release'),
   };
   const db = { query: connection.query, getConnection: async () => connection };
   const app = express();
   app.use(express.json());
-  app.use((req, _res, next) => { req.user = user; next(); });
+  app.use((req: any, _res, next) => {
+    req.user = user;
+    next();
+  });
   app.use('/data', createAdminDataRouter(db));
   const server = app.listen(0, '127.0.0.1');
   await new Promise((resolve) => server.once('listening', resolve));
-  t.after(() => { server.closeAllConnections(); server.close(); });
-  const request = async (path, method = 'GET', body) => {
-    const response = await fetch(`http://127.0.0.1:${server.address().port}/data${path}`, { method, headers: { 'Content-Type': 'application/json' }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
-    return { status: response.status, body: await response.json() };
+  t.after(() => {
+    server.closeAllConnections();
+    server.close();
+  });
+  const address = server.address() as AddressInfo;
+  const request = async (path: string, method = 'GET', body?: any) => {
+    const response = await fetch(`http://127.0.0.1:${address.port}/data${path}`, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    });
+    return { status: response.status, body: (await response.json()) as any };
   };
   return { request, events, db };
 }
-const samples = {
+
+const samples: Record<string, any> = {
   users: { username: 'Lan', email: 'lan@example.test', password: 'mk123@', role: 'user', is_premium: false },
   artists: { name: 'Nghệ sĩ mới', bio: 'Tiểu sử' },
   albums: { title: 'Album mới', artist_id: 4, release_date: '2026-09-21' },
@@ -53,7 +72,7 @@ test('normalizes all six entities and validates fields without accepting arbitra
 });
 
 test('lists every entity with pagination, literal search parameters, and no password projection', async (t) => {
-  const h = await harness(t, async (sql) => sql.startsWith('SELECT COUNT') ? [[{ total: 21 }]] : [[{ title: 'Example' }]]);
+  const h = await harness(t, async (sql) => (sql.startsWith('SELECT COUNT') ? [[{ total: 21 }]] : [[{ title: 'Example' }]]));
   for (const entity of Object.keys(samples)) {
     const result = await h.request(`/${entity}?page=99&pageSize=20&q=${encodeURIComponent("%' OR 1=1 --")}`);
     assert.equal(result.status, 200);
@@ -69,7 +88,7 @@ test('lists every entity with pagination, literal search parameters, and no pass
   }
   assert.equal((await h.request('/users?page=0')).status, 400);
   assert.equal((await h.request('/users?page=1.5')).status, 400);
-  assert.equal((await h.request('/users?q[x]=1')).status, 200); // Express treats this as an unrelated query parameter.
+  assert.equal((await h.request('/users?q[x]=1')).status, 200);
   assert.equal((await h.request('/users?q=a&q=b')).status, 400);
   assert.equal((await h.request('/password_hash')).status, 404);
   assert.equal((await h.request('/constructor')).status, 404);
@@ -123,7 +142,9 @@ test('invalid references, duplicate values, and relation failures roll back the 
   const missing = await harness(t, async () => [[]]);
   assert.equal((await missing.request('/playlists', 'POST', samples.playlists)).status, 400);
   assert.ok(missing.events.includes('rollback'));
-  const duplicate = await harness(t, async () => { throw Object.assign(new Error('duplicate'), { code: 'ER_DUP_ENTRY' }); });
+  const duplicate = await harness(t, async () => {
+    throw Object.assign(new Error('duplicate'), { code: 'ER_DUP_ENTRY' });
+  });
   assert.equal((await duplicate.request('/genres', 'POST', samples.genres)).status, 409);
   assert.ok(duplicate.events.includes('rollback'));
   const partial = await harness(t, async (sql) => {
@@ -168,9 +189,19 @@ test('delete requires current impact confirmation and does not write before conf
 
 test('router denies unauthenticated/non-admin callers before querying the database', async (t) => {
   for (const user of [null, { user_id: 2, role: 'user' }]) {
-    const h = await harness(t, () => { assert.fail('Must not query database'); }, user);
+    const h = await harness(
+      t,
+      () => {
+        assert.fail('Must not query database');
+      },
+      user
+    );
     for (const method of ['GET', 'POST', 'PUT', 'DELETE']) {
-      const result = await h.request(method === 'GET' || method === 'POST' ? '/users' : '/users/1', method, method === 'GET' ? undefined : {});
+      const result = await h.request(
+        method === 'GET' || method === 'POST' ? '/users' : '/users/1',
+        method,
+        method === 'GET' ? undefined : {}
+      );
       assert.equal(result.status, user ? 403 : 401);
     }
   }
@@ -178,7 +209,17 @@ test('router denies unauthenticated/non-admin callers before querying the databa
 
 test('connection is released when starting a transaction fails', async () => {
   let released = false;
-  const db = { getConnection: async () => ({ beginTransaction: async () => { throw new Error('offline'); }, rollback: async () => {}, release: () => { released = true; } }) };
-  await assert.rejects(transaction(db, () => {}), /offline/);
+  const db = {
+    getConnection: async () => ({
+      beginTransaction: async () => {
+        throw new Error('offline');
+      },
+      rollback: async () => {},
+      release: () => {
+        released = true;
+      },
+    }),
+  };
+  await assert.rejects(transaction(db, () => Promise.resolve()), /offline/);
   assert.equal(released, true);
 });

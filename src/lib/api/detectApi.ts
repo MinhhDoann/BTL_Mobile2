@@ -1,6 +1,17 @@
+import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
-const FALLBACK_LAN_IP = process.env.EXPO_PUBLIC_FALLBACK_IP ?? '192.168.1.141';
+const getHostFromConstants = (): string | null => {
+  const hostUri =
+    Constants.expoConfig?.hostUri ??
+    (Constants as any).manifest2?.extra?.expoGo?.debuggerHost ??
+    (Constants as any).manifest?.debuggerHost;
+  if (!hostUri) return null;
+  return hostUri.split(':')[0];
+};
+
+const devHostIp = getHostFromConstants();
+const FALLBACK_LAN_IP = process.env.EXPO_PUBLIC_FALLBACK_IP ?? devHostIp ?? '192.168.1.6';
 const probeTimeout = 2500;
 
 function fetchWithTimeout(url: string, timeout = probeTimeout) {
@@ -37,9 +48,14 @@ export async function detectApiBase(): Promise<string> {
   if (Platform.OS === 'web') {
     candidates.push('http://localhost:3000');
   } else {
+    if (devHostIp) {
+      candidates.push(`http://${devHostIp}:3000`);
+    }
+    if (FALLBACK_LAN_IP && FALLBACK_LAN_IP !== devHostIp) {
+      candidates.push(`http://${FALLBACK_LAN_IP}:3000`);
+    }
     candidates.push('http://10.0.2.2:3000');
     candidates.push('http://10.0.3.2:3000');
-    candidates.push(`http://${FALLBACK_LAN_IP}:3000`);
     candidates.push('http://localhost:3000');
   }
 

@@ -1,11 +1,11 @@
 import {
-    AdminDashboardData,
-    CreateSongInput,
-    CreateSongRequest,
-    AdminEntity,
-    AdminRecord,
-    AdminPage,
-    DeletePreview,
+  AdminDashboardData,
+  AdminEntity,
+  AdminPage,
+  AdminRecord,
+  CreateSongInput,
+  CreateSongRequest,
+  DeletePreview,
 } from '@/src/types/admin';
 
 import { apiRequest as request } from './auth-api';
