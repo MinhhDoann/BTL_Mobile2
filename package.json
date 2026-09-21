@@ -4,8 +4,11 @@
   "version": "1.0.0",
   "scripts": {
     "start": "expo start",
+<<<<<<< HEAD
     "backend": "node backend/server.js",
     "reset-project": "node ./scripts/reset-project.js",
+=======
+>>>>>>> origin/main
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
