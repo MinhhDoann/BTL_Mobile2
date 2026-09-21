@@ -12,7 +12,7 @@ app.use('/uploads', express.static('uploads'));
 const db = mysql.createPool({
   host: 'localhost',
   user: 'root',
-  password: '352001',
+  password: '1234',
   database: 'mobile2',
   waitForConnections: true,
   connectionLimit: 10,
@@ -151,7 +151,7 @@ app.post('/api/admin/artists', async (req, res) => {
     }
 
     const [result] = await db.query(
-      `INSERT INTO artists (name, bio, avatar_url) VALUES (?, ?, ?)` ,
+      `INSERT INTO artists (name, bio, avatar_url) VALUES (?, ?, ?)`,
       [String(name).trim(), bio ? String(bio).trim() : null, avatar_url ? String(avatar_url).trim() : null]
     );
 
