@@ -3,12 +3,21 @@ import {
     CreateSongInput,
     CreateSongRequest,
 } from '@/src/types/admin';
-import { Platform } from 'react-native';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? (Platform.OS === 'web' ? 'http://localhost:3000' : 'http://10.88.114.200:3000');
+import { detectApiBase } from './detectApi';
+
+let API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? null;
+
+async function resolveBase() {
+  if (!API_BASE_URL) {
+    API_BASE_URL = await detectApiBase();
+  }
+  return API_BASE_URL;
+}
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const base = await resolveBase();
+  const response = await fetch(`${base}${path}`, {
     headers: {
       'Content-Type': 'application/json',
       ...(options.headers ?? {}),

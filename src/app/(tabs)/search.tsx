@@ -1,18 +1,18 @@
 import { AppHeader } from '@/src/components/ui/app-header';
 import { Footer } from '@/src/components/ui/footer';
 import { useFooterActions } from '@/src/constants/footer-actions';
+import { getCoverUrl } from '@/src/lib/cover-image';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
-  Image,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Image,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -32,7 +32,7 @@ type SongItem = {
   cover: string;
 };
 
-const API_BASE = Platform.OS === 'web' ? 'http://localhost:3000' : 'http://10.88.114.200:3000';
+import { detectApiBase } from '@/src/lib/api/detectApi';
 
 export default function SearchScreen() {
   const router = useRouter();
@@ -45,7 +45,8 @@ export default function SearchScreen() {
   useEffect(() => {
     const fetchSongs = async () => {
       try {
-        const response = await fetch(`${API_BASE}/api/home-data`);
+        const base = await detectApiBase();
+        const response = await fetch(`${base}/api/home-data`);
         const data = await response.json();
 
         const normalized: SongItem[] = [];
@@ -55,7 +56,7 @@ export default function SearchScreen() {
               id: song.song_id,
               title: song.title,
               artist: song.artist_name || 'Unknown artist',
-              cover: song.cover_url || 'https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=400&q=80',
+              cover: getCoverUrl(song.cover_url),
             });
           });
         });
