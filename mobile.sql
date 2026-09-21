@@ -106,118 +106,74 @@ CREATE TABLE listening_history (
     FOREIGN KEY (song_id) REFERENCES songs(song_id) ON DELETE CASCADE
 );
 
+-- 1. Thể loại
+INSERT INTO genres (genre_id, name) VALUES 
+(1, 'Pop'), (2, 'R&B'), (3, 'Hip-Hop/Rap'), (4, 'Indie'), (5, 'Ballad'), 
+(6, 'Rock'), (7, 'EDM'), (8, 'Jazz'), (9, 'Soundtrack / Game Music'), (10, 'Lofi');
 
-USE Mobile2;
+-- 2. Người dùng
+INSERT INTO users (user_id, username, email, password_hash, role, is_premium) VALUES 
+(1, 'admin', 'admin@spotify.com', 'hashed_password_123', 'admin', TRUE),
+(2, 'nguyenvana', 'ana@gmail.com', 'hashed_password_456', 'user', FALSE),
+(3, 'tranthib', 'bthi@gmail.com', 'hashed_password_789', 'user', TRUE),
+(4, 'levanc', 'levanc@gmail.com', 'hashed_password_abc', 'user', FALSE),
+(5, 'hoangphuong', 'phuonghn@gmail.com', 'hashed_password_xyz', 'user', TRUE);
 
--- Chèn dữ liệu Thể loại (Đã thêm dấu phẩy bị thiếu ở 'Ballad')
-INSERT INTO genres (name) VALUES 
-('Pop'), ('R&B'), ('Hip-Hop/Rap'), ('Indie'), ('Ballad'), 
-('Rock'), ('EDM'), ('Jazz'), ('Classical'), ('Lofi');
+-- 3. Nghệ sĩ
+INSERT INTO artists (artist_id, name, bio, avatar_url) VALUES 
+(1, 'HOYO-MiX', 'Studio âm nhạc chính thức của miHoYo', 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=300&q=80'),
+(2, 'Hứa Kim Tuyền & Hoàng Dũng', 'Nghệ sĩ, Nhạc sĩ V-Pop hàng đầu', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80'),
+(3, 'Project SEKAI', 'Project SEKAI COLORFUL STAGE! Original Soundtrack', 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=300&q=80'),
+(4, 'marzuz & Changg', 'Nghệ sĩ Indie Việt Nam', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80'),
+(5, 'Em Xinh Say Hi', 'Dàn nghệ sĩ Em Xinh Say Hi', 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=300&q=80'),
+(6, 'Jukysan', 'Ca sĩ V-Pop sở hữu giọng hát ngọt ngào', 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=300&q=80'),
+(7, 'Phương Ly', 'Nữ ca sĩ vạn người mê', 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=300&q=80'),
+(8, 'Olew', 'Ca sĩ, nhạc sĩ trẻ tài năng với hit Pháo Hoa', 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=300&q=80');
 
--- Chèn dữ liệu Người dùng (Đã thêm dấu phẩy bị thiếu ở dòng nguyenvana)
-INSERT INTO users (username, email, password_hash, role, is_premium) VALUES 
-('admin', 'admin@spotify.com', 'hashed_password_123', 'admin', TRUE),
-('nguyenvana', 'ana@gmail.com', 'hashed_password_456', 'user', FALSE),
-('tranthib', 'bt thi@gmail.com', 'hashed_password_789', 'user', TRUE),
-('levanc', 'levanc@gmail.com', 'hashed_password_abc', 'user', FALSE),
-('hoangphuong', 'phuonghn@gmail.com', 'hashed_password_xyz', 'user', TRUE);
+-- 4. Album
+INSERT INTO albums (album_id, title, cover_url, release_date, artist_id) VALUES 
+(1, 'Genshin Impact OST', 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=300&q=80', '2023-01-01', 1),
+(2, 'V-Pop Hits Collection', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80', '2024-02-14', 2);
 
--- Chèn dữ liệu Nghệ sĩ
-INSERT INTO artists (name, bio, avatar_url) VALUES 
-('Sơn Tùng M-TP', 'Ca sĩ, nhạc sĩ người Việt Nam.', 'https://example.com/avatars/sontung.jpg'),
-('Đen Vâu', 'Rapper người Việt Nam.', 'https://example.com/avatars/denvau.jpg'),
-('Bích Phương', 'Nữ ca sĩ với nhiều bản hit Pop Ballad.', 'https://example.com/avatars/bichphuong.jpg'),
-('Hà Anh Tuấn', 'Nam ca sĩ nổi tiếng với các live concert chất lượng.', 'https://example.com/avatars/haanhtuan.jpg'),
-('W/n', 'Nhà sản xuất âm nhạc trẻ với các ca khúc Lofi triệu view.', 'https://example.com/avatars/wn.jpg');
+-- 5. Bài hát (Toàn bộ 10 bài hát dùng đường dẫn raw.githubusercontent.com trực tiếp)
+INSERT INTO songs (song_id, title, duration, audio_url, cover_url, play_count, artist_id, album_id) VALUES 
+(1, 'ILovedYou (Orchestral Version)', 210, 'https://raw.githubusercontent.com/MinhhDoann/BTL_Mobile2/SongLink/HOYO-Mix_ILovedYou-Orchestral_Version.mp3', 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=300&q=80', 1200, 1, 1),
+(2, 'I Loved You', 200, 'https://raw.githubusercontent.com/MinhhDoann/BTL_Mobile2/SongLink/HOYO-MiX-I%20LovedYou.mp3', 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=300&q=80', 950, 1, 1),
+(3, 'Song of the Tidal Algae', 195, 'https://raw.githubusercontent.com/MinhhDoann/BTL_Mobile2/SongLink/HOYO-MiX_SangoftheTidalAlgae%20.mp3', 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=300&q=80', 1500, 1, 1),
+(4, 'Where the Moon Kisses the Water', 220, 'https://raw.githubusercontent.com/MinhhDoann/BTL_Mobile2/SongLink/HOYO-MiX_WheretheMoonKisses%20theWater.mp3', 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=300&q=80', 2100, 1, 1),
+(5, 'Người Gieo Mầm Xanh', 240, 'https://raw.githubusercontent.com/MinhhDoann/BTL_Mobile2/SongLink/HuaKimTuyen%2CHoangDung_Nguoigieomamxanh.mp3', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80', 3100, 2, 2),
+(6, 'The World at Bay Beyond the Pillow', 205, 'https://raw.githubusercontent.com/MinhhDoann/BTL_Mobile2/SongLink/TheWorldatBayBeyondthePillow_HOYO-MiX.mp3', 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=300&q=80', 800, 1, 1),
+(7, 'Under the Wish Tree', 215, 'https://raw.githubusercontent.com/MinhhDoann/BTL_Mobile2/SongLink/UndertheWishTree_%E3%83%97%E3%83%AD%E3%82%B8%E3%82%A7%E3%82%AF%E3%83%88%E3%82%BB%E3%82%AB%E3%82%A4.mp3', 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=300&q=80', 1750, 3, NULL),
+(8, 'Và Thế Giới Đã Mất Đi Một Người Cô Đơn', 230, 'https://raw.githubusercontent.com/MinhhDoann/BTL_Mobile2/SongLink/marzuz_Changg_VaTheGioiDaMatDiMotNguoiCoDon.mp3', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80', 4500, 4, NULL),
+(9, 'Người Đầu Tiên (Em Xinh Say Hi)', 210, 'https://raw.githubusercontent.com/MinhhDoann/BTL_Mobile2/SongLink/nguoidautien_emxinhsayhi.mp3', 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=300&q=80', 5000, 5, NULL),
+(10, 'Người Đầu Tiên (Jukysan)', 225, 'https://raw.githubusercontent.com/MinhhDoann/BTL_Mobile2/SongLink/nguoidautien_jukysan.mp3', 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=300&q=80', 2900, 6, NULL);
 
--- Chèn dữ liệu Album
-INSERT INTO albums (title, cover_url, release_date, artist_id) VALUES 
-('Chúng Ta', 'https://example.com/covers/chungta.jpg', '2020-12-20', 1);
-
--- Chèn dữ liệu Bài hát (Đã bổ sung đủ các cột thiếu cho bài Dramatic và Truyện Ngắn)
-INSERT INTO songs (title, duration, audio_url, cover_url, play_count, artist_id, album_id) VALUES 
-('Chúng Ta Của Hiện Tại', 302, 'https://zingmp3.vn/bai-hat/Chung-Ta-Cua-Hien-Tai-Son-Tung-M-TP/sGk6Iot5IvCZ.html', 'https://example.com/covers/chungta.jpg', 1500, 1, 1),
-('Nấu Ăn Cho Em', 245, 'https://example.com/audio/nau-an-cho-em.mp3', 'https://example.com/covers/nauanchoem.jpg', 2300, 2, NULL),
-('Dramatic', 210, 'https://example.com/audio/dramatic.mp3', 'https://example.com/covers/dramatic.jpg', 500, 3, NULL),
-('Truyện Ngắn', 250, 'https://example.com/audio/truyen-ngan.mp3', 'https://example.com/covers/truyenngan.jpg', 800, 4, NULL);
-INSERT INTO songs (title, duration, audio_url, cover_url, play_count, artist_id, album_id) VALUES ('Vợ Người Ta', 405, 'https://github.com/duyhuy25/KhoLinkMusic/raw/refs/heads/main/Phan%20M%E1%BA%A1nh%20Qu%E1%BB%B3nh%20-%20V%E1%BB%A3%20Ng%C6%B0%E1%BB%9Di%20Ta%20(MV%20Official)%20%5BWwEISi0Ktu4%5D.mp3', 'https://example.com/covers/chungta1.jpg', 1500, 1, 1);
-INSERT INTO songs (title, duration, audio_url, cover_url, play_count, artist_id, album_id) VALUES ('Túy Âm', 302, 'https://github.com/duyhuy25/KhoLinkMusic/raw/refs/heads/main/Bu%E1%BB%93n%20Th%C3%AC%20C%E1%BB%A9%20Kh%C3%B3c%20%C4%90i%20-%20Lynk%20Lee%20-%20Soundloaders.app.mp3', 'https://example.com/covers/tuyam.jpg', 1500, 1, 1);
-INSERT INTO songs (title, duration, audio_url, cover_url, play_count, artist_id, album_id) VALUES ('Người đầu tiên', 215, 'https://github.com/MinhhDoann/BTL_Mobile2/raw/refs/heads/SongLink/nguoidautien_jukysan.mp3', 'https://example.com/covers/nguoidautien2.jpg', 1500, 1, 1);
-INSERT INTO songs (title, duration, audio_url, cover_url, play_count, artist_id, album_id) VALUES ('Người đầu tiên', 232, 'https://github.com/MinhhDoann/BTL_Mobile2/raw/refs/heads/SongLink/nguoidautien_emxinhsayhi.mp3', 'https://example.com/covers/nguoidautien.jpg', 1500, 1, 1);
-INSERT INTO songs
-(title, duration, audio_url, cover_url, play_count, artist_id, album_id)
-VALUES
-(
-  'Người đầu tiên 4',
-  415,
-  'https://github.com/MinhhDoann/BTL_Mobile2/raw/refs/heads/SongLink/nguoidautien_jukysan.mp3',
-  'https://raw.githubusercontent.com/duyhuy25/KhoLinkMusic/main/sontung.jpg',
-  1500,
-  1,
-  1
-);-- Chèn Thể loại cho bài hát
-
+-- 6. Liên kết Bài hát - Thể loại
 INSERT INTO song_genres (song_id, genre_id) VALUES 
-(1, 1), 
-(2, 3), 
-(3, 1), 
-(3, 2), 
-(4, 5);
+(1, 9), (2, 9), (3, 9), (4, 9), (6, 9), -- HOYO-MiX (Soundtrack / Game Music)
+(5, 1), (5, 5),                        -- Người Gieo Mầm Xanh (Pop, Ballad)
+(7, 9), (7, 1),                        -- Under the Wish Tree (Game Music, Pop)
+(8, 4), (8, 1),                        -- Và Thế Giới Đã Mất Đi... (Indie, Pop)
+(9, 1), (10, 1), (10, 5);              -- Người Đầu Tiên (Pop, Ballad)
 
--- Chèn Playlist mẫu (Đã sửa lỗi dấu chấm phẩy giữa chừng)
-INSERT INTO playlists (user_id, title, description, is_public) VALUES 
-(2, 'Nhạc Chill Cuối Tuần', 'Danh sách bài hát thư giãn', TRUE),
-(2, 'Nhạc Trẻ Gây Nghiện', 'Tổng hợp những bài hát Pop và Ballad hay nhất', TRUE),
-(3, 'Lofi Study & Chill', 'Nghe để tập trung học tập và làm việc', TRUE);
+-- 7. Danh sách phát (Playlists)
+INSERT INTO playlists (playlist_id, user_id, title, description, is_public) VALUES 
+(1, 2, 'Nhạc Game Chill & Study', 'Tổng hợp nhạc HOYO-MiX không lời', TRUE),
+(2, 2, 'V-Pop Hits Mới Nhất', 'Những bài hát V-Pop cực chill', TRUE),
+(3, 3, 'Lofi & Indie Việt', 'Nghe để thư giãn cuối tuần', TRUE);
 
--- Chèn Bài hát vào Playlist
+-- 8. Bài hát trong Playlist
 INSERT INTO playlist_songs (playlist_id, song_id, order_index) VALUES 
-(1, 1, 1),
-(1, 2, 2),
-(2, 3, 1), 
-(2, 4, 2), 
-(3, 4, 1);
+(1, 1, 1), (1, 2, 2), (1, 3, 3), (1, 4, 4),
+(2, 5, 1), (2, 9, 2), (2, 10, 3),
+(3, 8, 1), (3, 5, 2);
 
+-- 9. Bài hát Yêu thích
 INSERT INTO user_favorite_songs (user_id, song_id) VALUES 
-(2, 3),
-(3, 1),
-(4, 4);
+(2, 1), (2, 9), (3, 8), (4, 5);
 
+-- 10. Lịch sử Nghe Nhạc
 INSERT INTO listening_history (user_id, song_id) VALUES 
-(2, 3),
-(3, 1),
-(4, 4),
-(2, 2);
+(2, 9), (2, 1), (3, 8), (4, 5), (2, 3);
 
 
-
-USE Mobile2;
-ALTER TABLE listening_history AUTO_INCREMENT = 1;
--- Xóa dữ liệu cũ (nếu chạy lại script) theo thứ tự khóa ngoại
-SET FOREIGN_KEY_CHECKS = 0;
-TRUNCATE TABLE listening_history;
-TRUNCATE TABLE user_favorite_songs;
-TRUNCATE TABLE playlist_songs;
-TRUNCATE TABLE playlists;
-TRUNCATE TABLE song_genres;
-TRUNCATE TABLE songs;
-TRUNCATE TABLE albums;
-TRUNCATE TABLE artists;
-TRUNCATE TABLE users;
-TRUNCATE TABLE genres;
-SET FOREIGN_KEY_CHECKS = 1;
-
-SELECT * FROM genres;
-SHOW TABLES;
-SELECT 
-    g.genre_id, 
-    g.name AS genre_name, 
-    s.song_id, 
-    s.title, 
-    s.cover_url, 
-    s.audio_url, 
-    a.name AS artist_name
-FROM genres g
-JOIN song_genres sg ON g.genre_id = sg.genre_id
-JOIN songs s ON sg.song_id = s.song_id
-JOIN artists a ON s.artist_id = a.artist_id;
