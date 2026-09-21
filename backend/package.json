@@ -2,11 +2,13 @@
   "name": "backend",
   "version": "1.0.0",
   "description": "",
-  "main": "server.js",
+  "main": "src/server.ts",
   "scripts": {
-    "test": "node --test auth.test.js admin-data.test.js",
-    "set-password": "node set-password.js",
-    "start": "node server.js"
+    "test": "tsx --test test/auth.test.ts test/admin-data.test.ts",
+    "set-password": "tsx src/utils/set-password.ts",
+    "start": "tsx src/server.ts",
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc"
   },
   "keywords": [],
   "author": "",
@@ -16,5 +18,12 @@
     "expo-av": "~16.0.8",
     "express": "^5.2.1",
     "mysql2": "^3.24.4"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.6.2",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
   }
 }
