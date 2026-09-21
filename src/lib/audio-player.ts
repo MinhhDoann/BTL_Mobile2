@@ -19,6 +19,8 @@ class AudioPlayerService {
   private activeSongId: number | null = null;
   private listeners = new Set<Listener>();
   private initialized = false;
+  // Every load gets a unique id. Status events from an older sound are ignored.
+  private playbackVersion = 0;
   private state: PlayerState = {
     songId: null,
     isPlaying: false,
@@ -51,17 +53,21 @@ class AudioPlayerService {
   }
 
   async stopCurrent() {
-    if (!this.sound) return;
+    const soundToStop = this.sound;
+    // Detach the old player before awaiting native calls. This resets the UI
+    // immediately and prevents late status events from the old track winning.
+    this.playbackVersion += 1;
+    this.sound = null;
+    this.activeSongId = null;
+    this.setState({ songId: null, isPlaying: false, positionMs: 0, durationMs: 0 });
+
+    if (!soundToStop) return;
 
     try {
-      await this.sound.stopAsync();
-      await this.sound.unloadAsync();
+      await soundToStop.stopAsync();
+      await soundToStop.unloadAsync();
     } catch (error) {
       console.warn('Stop current sound failed:', error);
-    } finally {
-      this.sound = null;
-      this.activeSongId = null;
-      this.setState({ songId: null, isPlaying: false, positionMs: 0, durationMs: 0 });
     }
   }
 
@@ -93,11 +99,13 @@ class AudioPlayerService {
       }
 
       try {
-        const { sound: newSound } = await Audio.Sound.createAsync(
+        const playbackVersion = ++this.playbackVersion;
+        const { sound: newSound, status: initialStatus } = await Audio.Sound.createAsync(
           { uri: safeUrl },
           { shouldPlay: true },
           (status: any) => {
             if (!status.isLoaded) return;
+            if (playbackVersion !== this.playbackVersion) return;
             this.setState({
               songId: track.songId,
               positionMs: status.positionMillis ?? 0,
@@ -107,9 +115,21 @@ class AudioPlayerService {
           }
         );
 
+        if (playbackVersion !== this.playbackVersion) {
+          await newSound.unloadAsync();
+          return;
+        }
+
         this.sound = newSound;
         this.activeSongId = track.songId;
-        this.setState({ songId: track.songId, isPlaying: true, positionMs: 0, durationMs: 0 });
+        if (initialStatus.isLoaded) {
+          this.setState({
+            songId: track.songId,
+            isPlaying: initialStatus.isPlaying,
+            positionMs: initialStatus.positionMillis ?? 0,
+            durationMs: initialStatus.durationMillis ?? 0,
+          });
+        }
       } catch (error) {
         console.error('Playback error:', error);
       }
