@@ -140,8 +140,23 @@ INSERT INTO songs (title, duration, audio_url, cover_url, play_count, artist_id,
 ('Nấu Ăn Cho Em', 245, 'https://example.com/audio/nau-an-cho-em.mp3', 'https://example.com/covers/nauanchoem.jpg', 2300, 2, NULL),
 ('Dramatic', 210, 'https://example.com/audio/dramatic.mp3', 'https://example.com/covers/dramatic.jpg', 500, 3, NULL),
 ('Truyện Ngắn', 250, 'https://example.com/audio/truyen-ngan.mp3', 'https://example.com/covers/truyenngan.jpg', 800, 4, NULL);
+INSERT INTO songs (title, duration, audio_url, cover_url, play_count, artist_id, album_id) VALUES ('Vợ Người Ta', 405, 'https://github.com/duyhuy25/KhoLinkMusic/raw/refs/heads/main/Phan%20M%E1%BA%A1nh%20Qu%E1%BB%B3nh%20-%20V%E1%BB%A3%20Ng%C6%B0%E1%BB%9Di%20Ta%20(MV%20Official)%20%5BWwEISi0Ktu4%5D.mp3', 'https://example.com/covers/chungta1.jpg', 1500, 1, 1);
+INSERT INTO songs (title, duration, audio_url, cover_url, play_count, artist_id, album_id) VALUES ('Túy Âm', 302, 'https://github.com/duyhuy25/KhoLinkMusic/raw/refs/heads/main/Bu%E1%BB%93n%20Th%C3%AC%20C%E1%BB%A9%20Kh%C3%B3c%20%C4%90i%20-%20Lynk%20Lee%20-%20Soundloaders.app.mp3', 'https://example.com/covers/tuyam.jpg', 1500, 1, 1);
+INSERT INTO songs (title, duration, audio_url, cover_url, play_count, artist_id, album_id) VALUES ('Người đầu tiên', 215, 'https://github.com/MinhhDoann/BTL_Mobile2/raw/refs/heads/SongLink/nguoidautien_jukysan.mp3', 'https://example.com/covers/nguoidautien2.jpg', 1500, 1, 1);
+INSERT INTO songs (title, duration, audio_url, cover_url, play_count, artist_id, album_id) VALUES ('Người đầu tiên', 232, 'https://github.com/MinhhDoann/BTL_Mobile2/raw/refs/heads/SongLink/nguoidautien_emxinhsayhi.mp3', 'https://example.com/covers/nguoidautien.jpg', 1500, 1, 1);
+INSERT INTO songs
+(title, duration, audio_url, cover_url, play_count, artist_id, album_id)
+VALUES
+(
+  'Người đầu tiên 4',
+  415,
+  'https://github.com/MinhhDoann/BTL_Mobile2/raw/refs/heads/SongLink/nguoidautien_jukysan.mp3',
+  'https://raw.githubusercontent.com/duyhuy25/KhoLinkMusic/main/sontung.jpg',
+  1500,
+  1,
+  1
+);-- Chèn Thể loại cho bài hát
 
--- Chèn Thể loại cho bài hát
 INSERT INTO song_genres (song_id, genre_id) VALUES 
 (1, 1), 
 (2, 3), 

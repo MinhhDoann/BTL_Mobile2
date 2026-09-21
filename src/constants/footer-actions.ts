@@ -1,8 +1,11 @@
 import { FooterAction } from '@/src/components/ui/footer';
 import { useRouter } from 'expo-router';
+import { useAuth } from '@/src/contexts/auth';
+import { Alert, Linking, Platform } from 'react-native';
 
 export function useFooterActions(activeTab: string = 'home'): FooterAction[] {
   const router = useRouter();
+  const { user } = useAuth();
 
   return [
     {
@@ -40,13 +43,22 @@ export function useFooterActions(activeTab: string = 'home'): FooterAction[] {
         // router.push('/register');
       },
     },
-    {
-      title: 'Admin',
+    ...(user?.role === 'admin' ? [{
+      title: 'Quản lý',
       icon: 'shield.fill',
       active: activeTab === 'admin',
       onPress: () => {
-        router.push('/admin' as any);
+        if (Platform.OS === 'web') {
+          router.push('/admin');
+          return;
+        }
+        const url = process.env.EXPO_PUBLIC_ADMIN_WEB_URL;
+        if (!url || !/^https?:\/\//i.test(url)) {
+          Alert.alert('Quản trị trên web', 'Địa chỉ trang quản trị chưa được cấu hình. Vui lòng liên hệ người vận hành.');
+          return;
+        }
+        void Linking.openURL(url).catch(() => Alert.alert('Không thể mở trang quản trị', 'Vui lòng thử lại.'));
       },
-    },
+    }] : []),
   ];
 }

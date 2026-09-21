@@ -2,16 +2,18 @@ import { AppHeader } from '@/src/components/ui/app-header';
 import { Footer } from '@/src/components/ui/footer';
 import { useFooterActions } from '@/src/constants/footer-actions';
 import { audioPlayer } from '@/src/lib/audio-player';
+import { getCoverUrl } from '@/src/lib/cover-image';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Dimensions,
   FlatList,
   Image, Platform, ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -28,7 +30,8 @@ interface GenreWithSongs {
   songs: Song[];
 }
 
-const API_BASE = Platform.OS === 'web' ? 'http://localhost:3000' : 'http://10.88.114.200:3000';
+// API base will be detected at runtime. Keep a fallback LAN IP you discovered.
+const FALLBACK_LAN_IP = '192.168.1.141';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -42,41 +45,42 @@ export default function HomeScreen() {
 
   // Gọi API lấy danh sách thể loại và bài hát khi mở màn hình
   useEffect(() => {
-    fetchDataFromMySQL();
+    let mounted = true;
+    (async () => {
+      try {
+        const base = await detectApiBase();
+        if (!mounted) return;
+        await fetchDataFromMySQL(base);
+      } catch (e) {
+        console.error('[Home] detectApiBase error', e);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
-  const fetchDataFromMySQL = async () => {
+  const fetchDataFromMySQL = async (base: string) => {
+    const url = `${base}/api/home-data`;
     try {
-      const response = await fetch(`${API_BASE}/api/home-data`); 
+      setLoading(true);
+      console.log('[Home] fetching', url);
+      const response = await fetch(url);
+      console.log('[Home] response status', response.status);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
-      setGenresData(data);
+      console.log('[Home] fetched items', Array.isArray(data) ? data.length : typeof data);
+      setGenresData(data || []);
     } catch (error) {
       console.error('Lỗi lấy dữ liệu từ MySQL:', error);
+      setGenresData([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Component render từng card bài hát theo hàng ngang
-  const renderSongItem = ({ item }: { item: Song }) => (
-    <TouchableOpacity
-      style={styles.songCard}
-      onPress={() => {
-        router.push({ pathname: '/song-detail', params: { songId: String(item.song_id) } });
-      }}
-    >
-      <View style={styles.thumbWrap}>
-        <Image
-          source={{ uri: item.cover_url || 'https://via.placeholder.com/240' }}
-          style={styles.coverImage}
-        />
-        {playingSongId === item.song_id ? <View style={styles.playingDot} /> : null}
-      </View>
-
-      <Text style={styles.songTitle} numberOfLines={1}>{item.title}</Text>
-      <Text style={styles.artistName} numberOfLines={1}>{item.artist_name}</Text>
-    </TouchableOpacity>
-  );
+  // Component render từng card bài hát theo hàng ngang (render dynamic itemWidth below)
 
   useEffect(() => {
     const unsubscribe = audioPlayer.subscribe((state) => {
@@ -89,6 +93,118 @@ export default function HomeScreen() {
   const playSong = async (song: Song) => {
     await audioPlayer.playTrack({ songId: song.song_id, audioUrl: song.audio_url });
   };
+
+  const isWeb = Platform.OS === 'web';
+  const defaultItemsPerSection = isWeb ? 8 : 4;
+
+  const [screenWidth, setScreenWidth] = useState(Dimensions.get('window').width);
+  useEffect(() => {
+    const sub = Dimensions.addEventListener?.('change', ({ window }) => setScreenWidth(window.width));
+    return () => sub?.remove?.();
+  }, []);
+
+  const itemsPerSection = defaultItemsPerSection;
+  const horizPadding = 16 * 2; // scrollArea paddingHorizontal * 2
+  const gap = 12; // gap between items
+  const itemWidth = Math.max(96, Math.floor((screenWidth - horizPadding - gap * (itemsPerSection - 1)) / itemsPerSection));
+
+  const [expanded, setExpanded] = useState<{ trending: boolean; recent: boolean }>({ trending: false, recent: false });
+
+  const [apiBase, setApiBase] = useState<string | null>(null);
+  const [detectingApi, setDetectingApi] = useState<boolean>(false);
+
+  const probeTimeout = 2500;
+
+  function fetchWithTimeout(url: string, timeout = probeTimeout) {
+    return new Promise<Response>((resolve, reject) => {
+      let done = false;
+      const timer = setTimeout(() => {
+        if (done) return;
+        done = true;
+        reject(new Error('timeout'));
+      }, timeout);
+
+      fetch(url)
+        .then((res) => {
+          if (done) return;
+          done = true;
+          clearTimeout(timer);
+          resolve(res);
+        })
+        .catch((err) => {
+          if (done) return;
+          done = true;
+          clearTimeout(timer);
+          reject(err);
+        });
+    });
+  }
+
+  async function detectApiBase() {
+    if (apiBase) return apiBase;
+    setDetectingApi(true);
+    const candidates: string[] = [];
+    if (Platform.OS === 'web') {
+      candidates.push('http://localhost:3000');
+    } else {
+      // common emulator/simulator addresses and LAN fallback
+      candidates.push('http://10.0.2.2:3000'); // Android emulator
+      candidates.push('http://10.0.3.2:3000'); // Genymotion
+      candidates.push(`http://${FALLBACK_LAN_IP}:3000`); // your machine LAN
+      candidates.push('http://localhost:3000'); // iOS simulator usually maps localhost
+    }
+
+    for (const candidate of candidates) {
+      try {
+        console.log('[Home] probing', candidate);
+        const res = await fetchWithTimeout(`${candidate}/api/home-data`, probeTimeout);
+        console.log('[Home] probe status', candidate, res.status);
+        if (res.ok) {
+          setApiBase(candidate);
+          setDetectingApi(false);
+          return candidate;
+        }
+      } catch (err: any) {
+        console.log('[Home] probe failed', candidate, err?.message ?? err);
+      }
+    }
+
+    // fallback: use LAN ip (may still fail)
+    const fallback = `http://${FALLBACK_LAN_IP}:3000`;
+    setApiBase(fallback);
+    setDetectingApi(false);
+    return fallback;
+  }
+
+  // Aggregate lists memoized to avoid recalculation on each render
+  const allSongs = useMemo(() => genresData.flatMap((g) => g.songs || []), [genresData]);
+  const trendingList = useMemo(() => allSongs, [allSongs]);
+  const recentList = useMemo(() => [...allSongs].sort((a, b) => b.song_id - a.song_id), [allSongs]);
+
+  const onPressSong = useCallback((songId: number) => {
+    router.push({ pathname: '/song-detail', params: { songId: String(songId) } });
+  }, [router]);
+
+  const SongCard = useCallback(({ item }: { item: Song }) => {
+    return (
+      <TouchableOpacity
+        style={[styles.songCard, { width: itemWidth, marginRight: 12 }]}
+        onPress={() => onPressSong(item.song_id)}
+      >
+        <View style={[styles.thumbWrap, { width: itemWidth, height: itemWidth }]}>
+          <Image
+            source={{ uri: getCoverUrl(item.cover_url) }}
+            style={[styles.coverImage, { width: itemWidth, height: itemWidth }]}
+          />
+          {playingSongId === item.song_id ? <View style={styles.playingDot} /> : null}
+        </View>
+
+        <Text style={styles.songTitle} numberOfLines={1}>{item.title}</Text>
+        <Text style={styles.artistName} numberOfLines={1}>{item.artist_name}</Text>
+      </TouchableOpacity>
+    );
+  }, [itemWidth, onPressSong, playingSongId]);
+
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -118,6 +234,22 @@ export default function HomeScreen() {
             <ActivityIndicator size="large" color="#FFFFFF" style={{ marginTop: 40 }} />
           ) : (
             <ScrollView style={styles.scrollArea} contentContainerStyle={{ paddingBottom: 20 }}>
+              {!loading && genresData.length === 0 && (
+                <View style={{ padding: 16 }}>
+                  <Text style={{ color: '#fff', marginBottom: 8 }}>Không có dữ liệu hiển thị trên thiết bị này.</Text>
+                  <Text style={{ color: '#94A3B8', fontSize: 13 }}>
+                    Thử các bước:
+                  </Text>
+                  <Text style={{ color: '#94A3B8', fontSize: 13 }}>• Kiểm tra server backend có đang chạy và lắng nghe trên host đúng (0.0.0.0 hoặc IP máy).
+                  </Text>
+                  <Text style={{ color: '#94A3B8', fontSize: 13 }}>• Với Android emulator dùng 10.0.2.2:{'3000'} hoặc Genymotion dùng 10.0.3.2.
+                  </Text>
+                  <Text style={{ color: '#94A3B8', fontSize: 13 }}>• Với thiết bị thật, dùng IP máy dev (ví dụ 192.168.x.y:3000) và đảm bảo cùng mạng Wi‑Fi.
+                  </Text>
+                  <Text style={{ color: '#94A3B8', fontSize: 13 }}>• Mở DevTools/console để xem các log fetch (tìm '[Home] fetching').
+                  </Text>
+                </View>
+              )}
               {tab === 'all' && (
                 <View>
                   {/* Lặp qua từng Thể loại lấy từ CSDL MySQL */}
@@ -132,7 +264,7 @@ export default function HomeScreen() {
 
                       <FlatList
                         data={genre.songs}
-                        renderItem={renderSongItem}
+                        renderItem={({ item }) => <SongCard item={item} />}
                         keyExtractor={(item) => item.song_id.toString()}
                         horizontal={true}
                         showsHorizontalScrollIndicator={false}
@@ -143,7 +275,79 @@ export default function HomeScreen() {
                 </View>
               )}
 
-              {tab === 'music' && <Text style={styles.placeholder}>Danh sách Nhạc</Text>}
+              {tab === 'music' && (
+                <View>
+                  {/* Thịnh hành (aggregated across genres) */}
+                  <Text style={[styles.sectionTitle, { marginTop: 6 }]}>Thịnh hành</Text>
+                  {(() => {
+                    const allSongs = genresData.flatMap((g) => g.songs || []);
+                    const list = expanded.trending ? allSongs : allSongs.slice(0, itemsPerSection);
+
+                    return (
+                      <View style={styles.sectionContainer}>
+                        <View style={styles.sectionHeader}>
+                          <View />
+                          {allSongs.length > itemsPerSection && (
+                            <TouchableOpacity onPress={() => setExpanded((s) => ({ ...s, trending: !s.trending }))} style={styles.seeAll}>
+                              <Text style={styles.seeAllText}>{expanded.trending ? 'Thu gọn' : 'Xem thêm'}</Text>
+                            </TouchableOpacity>
+                          )}
+                        </View>
+
+                        <FlatList
+                          data={list}
+                          renderItem={SongCard}
+                          keyExtractor={(item) => `tr-${item.song_id}`}
+                          horizontal={true}
+                          showsHorizontalScrollIndicator={false}
+                          contentContainerStyle={styles.horizontalList}
+                          initialNumToRender={Math.min(itemsPerSection, list.length)}
+                          maxToRenderPerBatch={Math.min(itemsPerSection * 2, list.length)}
+                          windowSize={5}
+                          removeClippedSubviews={true}
+                          getItemLayout={(_, index) => ({ length: itemWidth + 12, offset: (itemWidth + 12) * index, index })}
+                        />
+                      </View>
+                    );
+                  })()}
+
+                  {/* Mới (aggregated and sorted by newest) */}
+                  <Text style={[styles.sectionTitle, { marginTop: 6 }]}>Mới</Text>
+                  {(() => {
+                    const allSongs = genresData.flatMap((g) => g.songs || []);
+                    const sorted = [...allSongs].sort((a, b) => (b.song_id - a.song_id));
+                    const list = expanded.recent ? sorted : sorted.slice(0, itemsPerSection);
+
+                    return (
+                      <View style={styles.sectionContainer}>
+                        <View style={styles.sectionHeader}>
+                          <View />
+                          {sorted.length > itemsPerSection && (
+                            <TouchableOpacity onPress={() => setExpanded((s) => ({ ...s, recent: !s.recent }))} style={styles.seeAll}>
+                              <Text style={styles.seeAllText}>{expanded.recent ? 'Thu gọn' : 'Xem thêm'}</Text>
+                            </TouchableOpacity>
+                          )}
+                        </View>
+
+                        <FlatList
+                          data={list}
+                          renderItem={SongCard}
+                          keyExtractor={(item) => `new-${item.song_id}`}
+                          horizontal={true}
+                          showsHorizontalScrollIndicator={false}
+                          contentContainerStyle={styles.horizontalList}
+                          initialNumToRender={Math.min(itemsPerSection, list.length)}
+                          maxToRenderPerBatch={Math.min(itemsPerSection * 2, list.length)}
+                          windowSize={5}
+                          removeClippedSubviews={true}
+                          getItemLayout={(_, index) => ({ length: itemWidth + 12, offset: (itemWidth + 12) * index, index })}
+                        />
+                      </View>
+                    );
+                  })()}
+                </View>
+              )}
+
               {tab === 'podcast' && <Text style={styles.placeholder}>Danh sách Podcasts</Text>}
             </ScrollView>
           )}
@@ -187,6 +391,38 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   chipTextActive: {
+    color: '#0B1120',
+    fontWeight: '600',
+  },
+  filterRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
+  filterGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  podcastGroup: { },
+  chipSmall: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 18,
+    backgroundColor: '#1E293B',
+    marginRight: 8,
+  },
+  chipActiveSmall: {
+    backgroundColor: '#FFFFFF',
+  },
+  chipTextSmall: {
+    color: '#94A3B8',
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  chipTextActiveSmall: {
     color: '#0B1120',
     fontWeight: '600',
   },
@@ -243,6 +479,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingRight: 8,
     gap: 12,
+    paddingLeft: 0,
   },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   seeAll: { paddingHorizontal: 8, paddingVertical: 4 },

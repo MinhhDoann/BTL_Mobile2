@@ -2,17 +2,17 @@ import { AppHeader } from '@/src/components/ui/app-header';
 import { Footer } from '@/src/components/ui/footer';
 import { useFooterActions } from '@/src/constants/footer-actions';
 import { audioPlayer } from '@/src/lib/audio-player';
+import { getCoverUrl } from '@/src/lib/cover-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Image,
-    Platform,
     ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
-    View,
+    View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -38,7 +38,7 @@ type RelatedSong = {
   artist_name: string;
 };
 
-const API_BASE = Platform.OS === 'web' ? 'http://localhost:3000' : 'http://10.88.114.200:3000';
+import { detectApiBase } from '@/src/lib/api/detectApi';
 
 export default function SongDetailScreen() {
   const router = useRouter();
@@ -61,7 +61,8 @@ export default function SongDetailScreen() {
       if (!songId) return;
 
       try {
-        const response = await fetch(`${API_BASE}/api/songs/${songId}/detail`);
+        const base = await detectApiBase();
+        const response = await fetch(`${base}/api/songs/${songId}/detail`);
         const data = await response.json();
         setDetail(data);
       } catch (error) {
@@ -166,7 +167,7 @@ export default function SongDetailScreen() {
             }}
           >
             <Image
-              source={{ uri: item.cover_url || 'https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=400&q=80' }}
+              source={{ uri: getCoverUrl(item.cover_url) }}
               style={styles.relatedCover}
             />
             <View style={styles.relatedInfo}>
@@ -188,7 +189,7 @@ export default function SongDetailScreen() {
         <ScrollView style={styles.content} contentContainerStyle={styles.contentInner}>
           <View style={styles.heroCard}>
             <Image
-              source={{ uri: song.cover_url || 'https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=400&q=80' }}
+              source={{ uri: getCoverUrl(song.cover_url) }}
               style={styles.coverBig}
             />
 

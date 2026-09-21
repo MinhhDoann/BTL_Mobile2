@@ -2,28 +2,32 @@ import {
     AdminDashboardData,
     CreateSongInput,
     CreateSongRequest,
+    AdminEntity,
+    AdminRecord,
+    AdminPage,
+    DeletePreview,
 } from '@/src/types/admin';
-import { Platform } from 'react-native';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? (Platform.OS === 'web' ? 'http://localhost:3000' : 'http://10.88.114.200:3000');
+import { apiRequest as request } from './auth-api';
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.headers ?? {}),
-    },
-    ...options,
+export function fetchAdminRows(entity: AdminEntity, page: number, query: string) {
+  return request<AdminPage>(`/api/admin/data/${entity}?page=${page}&pageSize=20&q=${encodeURIComponent(query)}`);
+}
+export function fetchAdminRecord(entity: AdminEntity, id: number) {
+  return request<AdminRecord>(`/api/admin/data/${entity}/${id}`);
+}
+export function saveAdminRecord(entity: AdminEntity, id: number | null, data: AdminRecord) {
+  return request<{ message: string }>(`/api/admin/data/${entity}${id === null ? '' : `/${id}`}`, {
+    method: id === null ? 'POST' : 'PUT', body: JSON.stringify(data),
   });
-
-  const text = await response.text();
-  const payload = text ? JSON.parse(text) : null;
-
-  if (!response.ok) {
-    throw new Error(payload?.message ?? payload?.error ?? 'Yêu cầu thất bại');
-  }
-
-  return payload as T;
+}
+export function previewAdminDelete(entity: AdminEntity, id: number) {
+  return request<DeletePreview>(`/api/admin/data/${entity}/${id}/delete-preview`);
+}
+export function deleteAdminRecord(entity: AdminEntity, id: number, confirmation: string) {
+  return request<{ message: string }>(`/api/admin/data/${entity}/${id}`, {
+    method: 'DELETE', body: JSON.stringify({ confirmation }),
+  });
 }
 
 export async function fetchAdminDashboard(): Promise<AdminDashboardData> {

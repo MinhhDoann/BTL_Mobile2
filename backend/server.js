@@ -1,12 +1,15 @@
 const express = require('express');
 const mysql = require('mysql2/promise');
 const cors = require('cors');
+const { createAuth } = require('./auth');
+const { createAdminDataRouter } = require('./admin-data');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
+app.use('/uploads', express.static('uploads'));
 
 const db = mysql.createPool({
   host: 'localhost',
@@ -17,6 +20,11 @@ const db = mysql.createPool({
   connectionLimit: 10,
   charset: 'utf8mb4',
 });
+
+const auth = createAuth(db);
+app.use('/api/auth', auth.router);
+app.use('/api/admin', auth.requireAdmin);
+app.use('/api/admin/data', createAdminDataRouter(db));
 
 app.get('/health', async (req, res) => {
   try {

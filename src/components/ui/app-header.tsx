@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Button } from '@react-navigation/elements';
-import { ReactNode } from 'react';
+import { useAuth } from '@/src/contexts/auth';
+import { useRouter } from 'expo-router';
+import { ReactNode, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 type AppHeaderProps = {
@@ -10,6 +11,10 @@ type AppHeaderProps = {
 };
 
 export function AppHeader({ title, onBackPress, rightAction }: AppHeaderProps) {
+  const { user, logout, loading } = useAuth();
+  const router = useRouter();
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
   return (
     <View style={styles.container}>
       <View style={styles.side}>
@@ -30,7 +35,17 @@ export function AppHeader({ title, onBackPress, rightAction }: AppHeaderProps) {
       </Text>
 
       <View style={[styles.side, styles.rightSide]}>{rightAction}
-        <Button style={styles.button}>Login</Button>
+        <Pressable accessibilityRole="button" disabled={loading || busy} style={styles.button} onPress={async () => {
+          if (!user) { router.push('/login'); return; }
+          setBusy(true);
+          setError('');
+          try { await logout(); }
+          catch { setError('Đăng xuất thất bại. Thử lại.'); }
+          finally { setBusy(false); }
+        }}>
+          <Text style={{ color: '#FFFFFF' }}>{busy ? 'Đang đăng xuất...' : user ? 'Đăng xuất' : 'Đăng nhập'}</Text>
+        </Pressable>
+        {error ? <Text accessibilityRole="alert" style={{ color: '#FDA4AF', fontSize: 11 }}>{error}</Text> : null}
       </View>
     </View>
   );
@@ -67,7 +82,8 @@ const styles = StyleSheet.create({
   },
   button: {
     backgroundColor: '#1E293B',
-    paddingRight: 20,
+    paddingHorizontal: 12,
     paddingVertical: 8,
+    borderRadius: 8,
   },
 });

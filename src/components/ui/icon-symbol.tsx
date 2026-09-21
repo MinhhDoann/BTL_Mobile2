@@ -22,6 +22,7 @@ const MAPPING = {
   'books.vertical': 'library-music',
   'music.note': 'music-note',
   'plus': 'add',
+  'shield.fill': 'admin-panel-settings',
 } as IconMapping;
 
 /**

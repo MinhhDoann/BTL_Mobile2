@@ -18,12 +18,16 @@ class AudioPlayerService {
   private sound: any = null;
   private activeSongId: number | null = null;
   private listeners = new Set<Listener>();
+  private initialized = false;
+  // Every load gets a unique id. Status events from an older sound are ignored.
+  private playbackVersion = 0;
   private state: PlayerState = {
     songId: null,
     isPlaying: false,
     positionMs: 0,
     durationMs: 0,
   };
+  private loading: Promise<void> | null = null;
 
   private emit() {
     const snapshot = this.getState();
@@ -49,65 +53,97 @@ class AudioPlayerService {
   }
 
   async stopCurrent() {
-    if (!this.sound) return;
+    const soundToStop = this.sound;
+    // Detach the old player before awaiting native calls. This resets the UI
+    // immediately and prevents late status events from the old track winning.
+    this.playbackVersion += 1;
+    this.sound = null;
+    this.activeSongId = null;
+    this.setState({ songId: null, isPlaying: false, positionMs: 0, durationMs: 0 });
+
+    if (!soundToStop) return;
 
     try {
-      await this.sound.stopAsync();
-      await this.sound.unloadAsync();
+      await soundToStop.stopAsync();
+      await soundToStop.unloadAsync();
     } catch (error) {
       console.warn('Stop current sound failed:', error);
-    } finally {
-      this.sound = null;
-      this.activeSongId = null;
-      this.setState({ songId: null, isPlaying: false, positionMs: 0, durationMs: 0 });
     }
   }
 
   async playTrack(track: AudioTrack) {
-    const safeUrl = track.audioUrl || 'https://interactive-examples.mdn.mozilla.net/media/cc0-audio/t-rex-roar.mp3';
+    await this.ensureAudioMode();
+    if (this.loading) {
+      await this.loading;
+    }
 
-    if (this.sound && this.activeSongId === track.songId) {
-      const status = await this.sound.getStatusAsync();
-      if (!status.isLoaded) return;
+    this.loading = (async () => {
+      const safeUrl = track.audioUrl || 'https://interactive-examples.mdn.mozilla.net/media/cc0-audio/t-rex-roar.mp3';
 
-      if (status.isPlaying) {
-        await this.sound.pauseAsync();
-        this.setState({ isPlaying: false });
-      } else {
-        await this.sound.playAsync();
-        this.setState({ isPlaying: true });
+      if (this.sound && this.activeSongId === track.songId) {
+        const status = await this.sound.getStatusAsync();
+        if (!status.isLoaded) return;
+
+        if (status.isPlaying) {
+          await this.sound.pauseAsync();
+          this.setState({ isPlaying: false });
+        } else {
+          await this.sound.playAsync();
+          this.setState({ isPlaying: true });
+        }
+        return;
       }
-      return;
-    }
 
-    if (this.sound) {
-      await this.stopCurrent();
-    }
+      if (this.sound) {
+        await this.stopCurrent();
+      }
 
-    try {
-      const { sound: newSound } = await Audio.Sound.createAsync(
-        { uri: safeUrl },
-        { shouldPlay: true },
-        (status: any) => {
-          if (!status.isLoaded) return;
+      try {
+        const playbackVersion = ++this.playbackVersion;
+        const { sound: newSound, status: initialStatus } = await Audio.Sound.createAsync(
+          { uri: safeUrl },
+          { shouldPlay: true },
+          (status: any) => {
+            if (!status.isLoaded) return;
+            if (playbackVersion !== this.playbackVersion) return;
+            this.setState({
+              songId: track.songId,
+              positionMs: status.positionMillis ?? 0,
+              durationMs: status.durationMillis ?? 0,
+              isPlaying: status.isPlaying,
+            });
+          }
+        );
+
+        if (playbackVersion !== this.playbackVersion) {
+          await newSound.unloadAsync();
+          return;
+        }
+
+        this.sound = newSound;
+        this.activeSongId = track.songId;
+        if (initialStatus.isLoaded) {
           this.setState({
             songId: track.songId,
-            positionMs: status.positionMillis ?? 0,
-            durationMs: status.durationMillis ?? 0,
-            isPlaying: status.isPlaying,
+            isPlaying: initialStatus.isPlaying,
+            positionMs: initialStatus.positionMillis ?? 0,
+            durationMs: initialStatus.durationMillis ?? 0,
           });
         }
-      );
+      } catch (error) {
+        console.error('Playback error:', error);
+      }
+    })();
 
-      this.sound = newSound;
-      this.activeSongId = track.songId;
-      this.setState({ songId: track.songId, isPlaying: true, positionMs: 0, durationMs: 0 });
-    } catch (error) {
-      console.error('Playback error:', error);
+    try {
+      await this.loading;
+    } finally {
+      this.loading = null;
     }
   }
 
   async togglePlay() {
+    await this.ensureAudioMode();
     if (!this.sound) return;
 
     const status = await this.sound.getStatusAsync();
@@ -119,6 +155,24 @@ class AudioPlayerService {
     } else {
       await this.sound.playAsync();
       this.setState({ isPlaying: true });
+    }
+  }
+
+  private async ensureAudioMode() {
+    if (this.initialized) return;
+    try {
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        interruptionModeIOS: Audio.INTERRUPTION_MODE_IOS_DO_NOT_MIX,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: true,
+        interruptionModeAndroid: Audio.INTERRUPTION_MODE_ANDROID_DO_NOT_MIX,
+        shouldDuckAndroid: false,
+        playThroughEarpieceAndroid: false,
+      });
+      this.initialized = true;
+    } catch (e) {
+      console.warn('Failed to set audio mode:', e);
     }
   }
 
