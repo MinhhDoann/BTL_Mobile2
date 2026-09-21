@@ -1,6 +1,7 @@
 import { AppHeader } from '@/src/components/ui/app-header';
 import { Footer } from '@/src/components/ui/footer';
 import { useFooterActions } from '@/src/constants/footer-actions';
+import { detectApiBase } from '@/src/lib/api/detectApi';
 import { audioPlayer } from '@/src/lib/audio-player';
 import { getCoverUrl } from '@/src/lib/cover-image';
 import { useRouter } from 'expo-router';
@@ -30,8 +31,6 @@ interface GenreWithSongs {
   songs: Song[];
 }
 
-// API base will be detected at runtime. Keep a fallback LAN IP you discovered.
-const FALLBACK_LAN_IP = '192.168.1.141';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -110,71 +109,7 @@ export default function HomeScreen() {
 
   const [expanded, setExpanded] = useState<{ trending: boolean; recent: boolean }>({ trending: false, recent: false });
 
-  const [apiBase, setApiBase] = useState<string | null>(null);
-  const [detectingApi, setDetectingApi] = useState<boolean>(false);
 
-  const probeTimeout = 2500;
-
-  function fetchWithTimeout(url: string, timeout = probeTimeout) {
-    return new Promise<Response>((resolve, reject) => {
-      let done = false;
-      const timer = setTimeout(() => {
-        if (done) return;
-        done = true;
-        reject(new Error('timeout'));
-      }, timeout);
-
-      fetch(url)
-        .then((res) => {
-          if (done) return;
-          done = true;
-          clearTimeout(timer);
-          resolve(res);
-        })
-        .catch((err) => {
-          if (done) return;
-          done = true;
-          clearTimeout(timer);
-          reject(err);
-        });
-    });
-  }
-
-  async function detectApiBase() {
-    if (apiBase) return apiBase;
-    setDetectingApi(true);
-    const candidates: string[] = [];
-    if (Platform.OS === 'web') {
-      candidates.push('http://localhost:3000');
-    } else {
-      // common emulator/simulator addresses and LAN fallback
-      candidates.push('http://10.0.2.2:3000'); // Android emulator
-      candidates.push('http://10.0.3.2:3000'); // Genymotion
-      candidates.push(`http://${FALLBACK_LAN_IP}:3000`); // your machine LAN
-      candidates.push('http://localhost:3000'); // iOS simulator usually maps localhost
-    }
-
-    for (const candidate of candidates) {
-      try {
-        console.log('[Home] probing', candidate);
-        const res = await fetchWithTimeout(`${candidate}/api/home-data`, probeTimeout);
-        console.log('[Home] probe status', candidate, res.status);
-        if (res.ok) {
-          setApiBase(candidate);
-          setDetectingApi(false);
-          return candidate;
-        }
-      } catch (err: any) {
-        console.log('[Home] probe failed', candidate, err?.message ?? err);
-      }
-    }
-
-    // fallback: use LAN ip (may still fail)
-    const fallback = `http://${FALLBACK_LAN_IP}:3000`;
-    setApiBase(fallback);
-    setDetectingApi(false);
-    return fallback;
-  }
 
   // Aggregate lists memoized to avoid recalculation on each render
   const allSongs = useMemo(() => genresData.flatMap((g) => g.songs || []), [genresData]);

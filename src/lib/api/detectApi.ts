@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 
-const FALLBACK_LAN_IP = process.env.EXPO_PUBLIC_FALLBACK_IP ?? '192.168.1.141';
+const FALLBACK_LAN_IP = process.env.EXPO_PUBLIC_FALLBACK_IP ?? '192.168.1.19';
 const probeTimeout = 2500;
 
 function fetchWithTimeout(url: string, timeout = probeTimeout) {
