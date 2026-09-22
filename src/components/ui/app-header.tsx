@@ -15,6 +15,7 @@ export function AppHeader({ title, onBackPress, rightAction }: AppHeaderProps) {
   const router = useRouter();
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+
   return (
     <View style={styles.container}>
       <View style={styles.side}>
@@ -31,21 +32,45 @@ export function AppHeader({ title, onBackPress, rightAction }: AppHeaderProps) {
       </View>
 
       <Text numberOfLines={1} style={styles.title}>
-        {title}      
+        {title}
       </Text>
 
-      <View style={[styles.side, styles.rightSide]}>{rightAction}
-        <Pressable accessibilityRole="button" disabled={loading || busy} style={styles.button} onPress={async () => {
-          if (!user) { router.push('/login'); return; }
-          setBusy(true);
-          setError('');
-          try { await logout(); }
-          catch { setError('Đăng xuất thất bại. Thử lại.'); }
-          finally { setBusy(false); }
-        }}>
+      <View style={[styles.side, styles.rightSide, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}>
+        {rightAction}
+        {user?.role === 'artist' ? (
+          <Pressable
+            accessibilityRole="button"
+            style={[styles.button, { backgroundColor: '#8B5CF6' }]}
+            onPress={() => router.push('/artist-studio' as any)}>
+            <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 12 }}>Studio</Text>
+          </Pressable>
+        ) : null}
+        <Pressable
+          accessibilityRole="button"
+          disabled={loading || busy}
+          style={styles.button}
+          onPress={async () => {
+            if (!user) {
+              router.push('/login');
+              return;
+            }
+            setBusy(true);
+            setError('');
+            try {
+              await logout();
+            } catch {
+              setError('Đăng xuất thất bại. Thử lại.');
+            } finally {
+              setBusy(false);
+            }
+          }}>
           <Text style={{ color: '#FFFFFF' }}>{busy ? 'Đang đăng xuất...' : user ? 'Đăng xuất' : 'Đăng nhập'}</Text>
         </Pressable>
-        {error ? <Text accessibilityRole="alert" style={{ color: '#FDA4AF', fontSize: 11 }}>{error}</Text> : null}
+        {error ? (
+          <Text accessibilityRole="alert" style={{ color: '#FDA4AF', fontSize: 11 }}>
+            {error}
+          </Text>
+        ) : null}
       </View>
     </View>
   );

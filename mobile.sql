@@ -8,7 +8,7 @@ CREATE TABLE users (
     email VARCHAR(100) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
     avatar_url VARCHAR(255),
-    role ENUM('user', 'admin') DEFAULT 'user',
+    role ENUM('user', 'admin', 'artist') DEFAULT 'user',
     is_premium BOOLEAN DEFAULT FALSE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
@@ -16,10 +16,12 @@ CREATE TABLE users (
 -- 3. Bảng Nghệ sĩ (artists)
 CREATE TABLE artists (
     artist_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NULL UNIQUE,
     name VARCHAR(100) NOT NULL,
     bio TEXT,
     avatar_url VARCHAR(255),
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE SET NULL
 );
 
 -- 4. Bảng Album (albums)
@@ -120,15 +122,20 @@ INSERT INTO users (username, email, password_hash, role, is_premium) VALUES
 ('nguyenvana', 'ana@gmail.com', 'hashed_password_456', 'user', FALSE),
 ('tranthib', 'bt thi@gmail.com', 'hashed_password_789', 'user', TRUE),
 ('levanc', 'levanc@gmail.com', 'hashed_password_abc', 'user', FALSE),
-('hoangphuong', 'phuonghn@gmail.com', 'hashed_password_xyz', 'user', TRUE);
+('hoangphuong', 'phuonghn@gmail.com', 'hashed_password_xyz', 'user', TRUE),
+('Sơn Tùng M-TP', 'artist@spotify.com', '123456', 'artist', TRUE),
+('Đen Vâu', 'denvau@artist.com', '123456', 'artist', TRUE),
+('Bích Phương', 'bichphuong@artist.com', '123456', 'artist', TRUE),
+('Hà Anh Tuấn', 'haanhtuan@artist.com', '123456', 'artist', TRUE),
+('W/n', 'wn@artist.com', '123456', 'artist', TRUE);
 
 -- Chèn dữ liệu Nghệ sĩ
-INSERT INTO artists (name, bio, avatar_url) VALUES 
-('Sơn Tùng M-TP', 'Ca sĩ, nhạc sĩ người Việt Nam.', 'https://example.com/avatars/sontung.jpg'),
-('Đen Vâu', 'Rapper người Việt Nam.', 'https://example.com/avatars/denvau.jpg'),
-('Bích Phương', 'Nữ ca sĩ với nhiều bản hit Pop Ballad.', 'https://example.com/avatars/bichphuong.jpg'),
-('Hà Anh Tuấn', 'Nam ca sĩ nổi tiếng với các live concert chất lượng.', 'https://example.com/avatars/haanhtuan.jpg'),
-('W/n', 'Nhà sản xuất âm nhạc trẻ với các ca khúc Lofi triệu view.', 'https://example.com/avatars/wn.jpg');
+INSERT INTO artists (name, bio, avatar_url, user_id) VALUES 
+('Sơn Tùng M-TP', 'Ca sĩ, nhạc sĩ người Việt Nam.', 'https://example.com/avatars/sontung.jpg', 6),
+('Đen Vâu', 'Rapper người Việt Nam.', 'https://example.com/avatars/denvau.jpg', 7),
+('Bích Phương', 'Nữ ca sĩ với nhiều bản hit Pop Ballad.', 'https://example.com/avatars/bichphuong.jpg', 8),
+('Hà Anh Tuấn', 'Nam ca sĩ nổi tiếng với các live concert chất lượng.', 'https://example.com/avatars/haanhtuan.jpg', 9),
+('W/n', 'Nhà sản xuất âm nhạc trẻ với các ca khúc Lofi triệu view.', 'https://example.com/avatars/wn.jpg', 10);
 
 -- Chèn dữ liệu Album
 INSERT INTO albums (title, cover_url, release_date, artist_id) VALUES 

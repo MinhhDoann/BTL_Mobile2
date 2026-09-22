@@ -92,3 +92,30 @@ songsRouter.get('/:songId/detail', async (req: Request, res: Response) => {
     return res.status(500).json({ message: 'Không thể tải chi tiết bài hát', error: error.message });
   }
 });
+
+// POST /api/songs/:songId/listen - Ghi nhận 1 lượt nghe (view/stream)
+songsRouter.post('/:songId/listen', async (req: Request, res: Response) => {
+  try {
+    const songId = Number(req.params.songId);
+    if (!songId || !Number.isFinite(songId)) {
+      return res.status(400).json({ message: 'songId không hợp lệ.' });
+    }
+
+    // Tăng play_count
+    await db.query('UPDATE songs SET play_count = play_count + 1 WHERE song_id = ?', [songId]);
+
+    // Nếu có userId gửi kèm hoặc đăng nhập, ghi lại vào listening_history
+    const userId = Number(req.body?.userId);
+    if (userId && Number.isFinite(userId)) {
+      await db.query('INSERT INTO listening_history (user_id, song_id) VALUES (?, ?)', [userId, songId]).catch(() => {});
+    }
+
+    const [rows]: [any[], any] = await db.query('SELECT play_count FROM songs WHERE song_id = ?', [songId]);
+
+    return res.json({ ok: true, play_count: rows[0]?.play_count ?? 0 });
+  } catch (error: any) {
+    console.error('Lỗi ghi nhận lượt nghe:', error);
+    return res.status(500).json({ message: 'Không thể ghi nhận lượt nghe', error: error.message });
+  }
+});
+

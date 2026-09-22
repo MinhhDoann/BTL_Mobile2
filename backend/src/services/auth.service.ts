@@ -26,6 +26,7 @@ export interface AuthServiceResult {
   router: Router;
   authenticate: (req: AuthRequest, res: Response, next: NextFunction) => Promise<any>;
   requireAdmin: (req: AuthRequest, res: Response, next: NextFunction) => void;
+  requireArtist: (req: AuthRequest, res: Response, next: NextFunction) => void;
   close: () => void;
 }
 
@@ -149,5 +150,15 @@ export function createAuth(db: DbQueryable, { now = Date.now }: AuthOptions = {}
     });
   }
 
-  return { router, authenticate, requireAdmin, close: () => clearInterval(cleanup) };
+  function requireArtist(req: AuthRequest, res: Response, next: NextFunction) {
+    authenticate(req, res, () => {
+      if (req.user?.role !== 'artist' && req.user?.role !== 'admin') {
+        return res.status(403).json({ message: 'Chỉ nghệ sĩ hoặc quản trị viên được phép thực hiện thao tác này.' });
+      }
+      res.set('Cache-Control', 'no-store');
+      next();
+    });
+  }
+
+  return { router, authenticate, requireAdmin, requireArtist, close: () => clearInterval(cleanup) };
 }

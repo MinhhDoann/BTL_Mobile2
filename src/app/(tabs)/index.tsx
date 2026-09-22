@@ -1,7 +1,7 @@
-import { detectApiBase } from '@/src/lib/api/detectApi';
 import { AppHeader } from '@/src/components/ui/app-header';
 import { Footer } from '@/src/components/ui/footer';
 import { useFooterActions } from '@/src/constants/footer-actions';
+import { detectApiBase } from '@/src/lib/api/detectApi';
 import { audioPlayer } from '@/src/lib/audio-player';
 import { getCoverUrl } from '@/src/lib/cover-image';
 import { useRouter } from 'expo-router';
@@ -35,7 +35,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const footerActions = useFooterActions('home');
   const [tab, setTab] = useState<'all' | 'music' | 'podcast'>('all');
-  
+
   // State lưu danh sách dữ liệu từ CSDL
   const [genresData, setGenresData] = useState<GenreWithSongs[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -107,8 +107,18 @@ export default function HomeScreen() {
   const itemWidth = Math.max(96, Math.floor((screenWidth - horizPadding - gap * (itemsPerSection - 1)) / itemsPerSection));
 
   const [expanded, setExpanded] = useState<{ trending: boolean; recent: boolean }>({ trending: false, recent: false });
-  // Aggregate lists memoized to avoid recalculation on each render
-  const allSongs = useMemo(() => genresData.flatMap((g) => g.songs || []), [genresData]);
+  // Aggregate lists memoized to avoid recalculation and duplicate keys
+  const allSongs = useMemo(() => {
+    const map = new Map<number, Song>();
+    for (const g of genresData) {
+      for (const s of g.songs || []) {
+        if (!map.has(s.song_id)) {
+          map.set(s.song_id, s);
+        }
+      }
+    }
+    return Array.from(map.values());
+  }, [genresData]);
   const trendingList = useMemo(() => allSongs, [allSongs]);
   const recentList = useMemo(() => [...allSongs].sort((a, b) => b.song_id - a.song_id), [allSongs]);
 
@@ -211,14 +221,13 @@ export default function HomeScreen() {
                   {/* Thịnh hành (aggregated across genres) */}
                   <Text style={[styles.sectionTitle, { marginTop: 6 }]}>Thịnh hành</Text>
                   {(() => {
-                    const allSongs = genresData.flatMap((g) => g.songs || []);
-                    const list = expanded.trending ? allSongs : allSongs.slice(0, itemsPerSection);
+                    const list = expanded.trending ? trendingList : trendingList.slice(0, itemsPerSection);
 
                     return (
                       <View style={styles.sectionContainer}>
                         <View style={styles.sectionHeader}>
                           <View />
-                          {allSongs.length > itemsPerSection && (
+                          {trendingList.length > itemsPerSection && (
                             <TouchableOpacity onPress={() => setExpanded((s) => ({ ...s, trending: !s.trending }))} style={styles.seeAll}>
                               <Text style={styles.seeAllText}>{expanded.trending ? 'Thu gọn' : 'Xem thêm'}</Text>
                             </TouchableOpacity>
@@ -245,15 +254,13 @@ export default function HomeScreen() {
                   {/* Mới (aggregated and sorted by newest) */}
                   <Text style={[styles.sectionTitle, { marginTop: 6 }]}>Mới</Text>
                   {(() => {
-                    const allSongs = genresData.flatMap((g) => g.songs || []);
-                    const sorted = [...allSongs].sort((a, b) => (b.song_id - a.song_id));
-                    const list = expanded.recent ? sorted : sorted.slice(0, itemsPerSection);
+                    const list = expanded.recent ? recentList : recentList.slice(0, itemsPerSection);
 
                     return (
                       <View style={styles.sectionContainer}>
                         <View style={styles.sectionHeader}>
                           <View />
-                          {sorted.length > itemsPerSection && (
+                          {recentList.length > itemsPerSection && (
                             <TouchableOpacity onPress={() => setExpanded((s) => ({ ...s, recent: !s.recent }))} style={styles.seeAll}>
                               <Text style={styles.seeAllText}>{expanded.recent ? 'Thu gọn' : 'Xem thêm'}</Text>
                             </TouchableOpacity>
@@ -337,7 +344,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  podcastGroup: { },
+  podcastGroup: {},
   chipSmall: {
     paddingHorizontal: 14,
     paddingVertical: 6,
@@ -360,11 +367,11 @@ const styles = StyleSheet.create({
   sectionContainer: {
     marginBottom: 24,
   },
-  sectionTitle: { 
-    color: '#FFFFFF', 
-    fontSize: 18, 
-    fontWeight: 'bold', 
-    marginBottom: 12 
+  sectionTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 12
   },
   // Style cho Card bài hát cuộn ngang
   songCard: {
