@@ -1,7 +1,7 @@
-import { detectApiBase } from '@/src/lib/api/detectApi';
 import { AppHeader } from '@/src/components/ui/app-header';
 import { Footer } from '@/src/components/ui/footer';
 import { useFooterActions } from '@/src/constants/footer-actions';
+import { detectApiBase } from '@/src/lib/api/detectApi';
 import { audioPlayer } from '@/src/lib/audio-player';
 import { getCoverUrl } from '@/src/lib/cover-image';
 import { useRouter } from 'expo-router';
@@ -35,34 +35,32 @@ export default function HomeScreen() {
   const router = useRouter();
   const footerActions = useFooterActions('home');
   const [tab, setTab] = useState<'all' | 'music' | 'podcast'>('all');
-  
+
   // State lưu danh sách dữ liệu từ CSDL
   const [genresData, setGenresData] = useState<GenreWithSongs[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [playingSongId, setPlayingSongId] = useState<number | null>(null);
 
+  const loadHomeData = useCallback(async (forceRefresh = false) => {
+    try {
+      setLoading(true);
+      const base = await detectApiBase(forceRefresh);
+      await fetchDataFromMySQL(base);
+    } catch (e) {
+      console.error('[Home] detectApiBase error', e);
+      setGenresData([]);
+      setLoading(false);
+    }
+  }, []);
+
   // Gọi API lấy danh sách thể loại và bài hát khi mở màn hình
   useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const base = await detectApiBase();
-        if (!mounted) return;
-        await fetchDataFromMySQL(base);
-      } catch (e) {
-        console.error('[Home] detectApiBase error', e);
-      }
-    })();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
+    loadHomeData();
+  }, [loadHomeData]);
 
   const fetchDataFromMySQL = async (base: string) => {
     const url = `${base}/api/home-data`;
     try {
-      setLoading(true);
       console.log('[Home] fetching', url);
       const response = await fetch(url);
       console.log('[Home] response status', response.status);
@@ -107,6 +105,7 @@ export default function HomeScreen() {
   const itemWidth = Math.max(96, Math.floor((screenWidth - horizPadding - gap * (itemsPerSection - 1)) / itemsPerSection));
 
   const [expanded, setExpanded] = useState<{ trending: boolean; recent: boolean }>({ trending: false, recent: false });
+
   // Aggregate lists memoized to avoid recalculation on each render
   const allSongs = useMemo(() => genresData.flatMap((g) => g.songs || []), [genresData]);
   const trendingList = useMemo(() => allSongs, [allSongs]);
@@ -167,8 +166,8 @@ export default function HomeScreen() {
             <ScrollView style={styles.scrollArea} contentContainerStyle={{ paddingBottom: 20 }}>
               {!loading && genresData.length === 0 && (
                 <View style={{ padding: 16 }}>
-                  <Text style={{ color: '#fff', marginBottom: 8 }}>Không có dữ liệu hiển thị trên thiết bị này.</Text>
-                  <Text style={{ color: '#94A3B8', fontSize: 13 }}>
+                  <Text style={{ color: '#fff', marginBottom: 8, fontSize: 16, fontWeight: 'bold' }}>Không có dữ liệu hiển thị trên thiết bị này.</Text>
+                  <Text style={{ color: '#94A3B8', fontSize: 13, marginBottom: 4 }}>
                     Thử các bước:
                   </Text>
                   <Text style={{ color: '#94A3B8', fontSize: 13 }}>• Kiểm tra server backend có đang chạy và lắng nghe trên host đúng (0.0.0.0 hoặc IP máy).
@@ -177,8 +176,22 @@ export default function HomeScreen() {
                   </Text>
                   <Text style={{ color: '#94A3B8', fontSize: 13 }}>• Với thiết bị thật, dùng IP máy dev (ví dụ 192.168.x.y:3000) và đảm bảo cùng mạng Wi‑Fi.
                   </Text>
-                  <Text style={{ color: '#94A3B8', fontSize: 13 }}>• Mở DevTools/console để xem các log fetch (tìm '[Home] fetching').
+                  <Text style={{ color: '#94A3B8', fontSize: 13, marginBottom: 12 }}>• Mở DevTools/console để xem các log fetch (tìm '[Home] fetching').
                   </Text>
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: '#1E293B',
+                      borderColor: '#334155',
+                      borderWidth: 1,
+                      paddingVertical: 10,
+                      paddingHorizontal: 16,
+                      borderRadius: 8,
+                      alignSelf: 'flex-start',
+                    }}
+                    onPress={() => loadHomeData(true)}
+                  >
+                    <Text style={{ color: '#38BDF8', fontWeight: '600' }}>🔄 Thử lại kết nối</Text>
+                  </TouchableOpacity>
                 </View>
               )}
               {tab === 'all' && (
@@ -337,7 +350,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  podcastGroup: { },
+  podcastGroup: {},
   chipSmall: {
     paddingHorizontal: 14,
     paddingVertical: 6,
@@ -360,11 +373,11 @@ const styles = StyleSheet.create({
   sectionContainer: {
     marginBottom: 24,
   },
-  sectionTitle: { 
-    color: '#FFFFFF', 
-    fontSize: 18, 
-    fontWeight: 'bold', 
-    marginBottom: 12 
+  sectionTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 12
   },
   // Style cho Card bài hát cuộn ngang
   songCard: {
