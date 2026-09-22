@@ -90,6 +90,109 @@ app.get('/api/home-data', async (req, res) => {
   }
 });
 
+app.get('/api/library', async (req, res) => {
+  const DEFAULT_PLAYLIST_COVER = 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&auto=format&fit=crop&q=80';
+
+  try {
+    const [playlists] = await db.query(`
+      SELECT 
+        p.playlist_id AS id,
+        p.title,
+        p.cover_url,
+        COUNT(ps.song_id) AS song_count,
+        COALESCE(u.username, 'Người dùng') AS owner_name,
+        'playlist' AS type,
+        p.created_at
+      FROM playlists p
+      LEFT JOIN users u ON u.user_id = p.user_id
+      LEFT JOIN playlist_songs ps ON ps.playlist_id = p.playlist_id
+      GROUP BY p.playlist_id, p.title, p.cover_url, u.username, p.created_at
+      ORDER BY p.created_at DESC
+    `);
+
+    const [albums] = await db.query(`
+      SELECT 
+        al.album_id AS id,
+        al.title,
+        al.cover_url,
+        CONCAT('Album • ', COALESCE(a.name, 'Nghệ sĩ')) AS subtitle,
+        'album' AS type,
+        al.release_date AS created_at
+      FROM albums al
+      LEFT JOIN artists a ON a.artist_id = al.artist_id
+      ORDER BY al.release_date DESC
+    `);
+
+    const [artists] = await db.query(`
+      SELECT 
+        art.artist_id AS id,
+        art.name AS title,
+        art.avatar_url AS cover_url,
+        'Nghệ sĩ' AS subtitle,
+        'artist' AS type,
+        art.created_at
+      FROM artists art
+      ORDER BY art.name ASC
+    `);
+
+    const [favCount] = await db.query(`SELECT COUNT(*) AS count FROM user_favorite_songs`);
+
+    const likedSongsItem = {
+      id: 'liked-songs',
+      title: 'Bài hát đã thích',
+      subtitle: `Danh sách phát • ${favCount[0]?.count || 0} bài hát`,
+      type: 'playlist',
+      cover_url: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400&auto=format&fit=crop&q=80',
+      created_at: new Date().toISOString(),
+    };
+
+    // Chuẩn hoá các playlist: thêm subtitle và cover_url mặc định
+    const normalizedPlaylists = playlists.map((p) => ({
+      ...p,
+      cover_url: p.cover_url || DEFAULT_PLAYLIST_COVER,
+      subtitle: `Danh sách phát • ${p.song_count} bài hát`,
+    }));
+
+    const allItems = [likedSongsItem, ...normalizedPlaylists, ...albums, ...artists];
+
+    return res.json({
+      items: allItems,
+      playlists: [likedSongsItem, ...normalizedPlaylists],
+      albums,
+      artists,
+    });
+  } catch (error) {
+    console.error('Lỗi API /api/library:', error);
+    res.status(500).json({ error: 'Lỗi server', details: error.message });
+  }
+});
+
+// Tạo danh sách phát mới
+app.post('/api/playlists', async (req, res) => {
+  try {
+    const { title, user_id = 1, is_public = true, description = '', cover_url = null } = req.body ?? {};
+
+    if (!title || !String(title).trim()) {
+      return res.status(400).json({ message: 'Tên danh sách phát không được để trống.' });
+    }
+
+    const [result] = await db.query(
+      `INSERT INTO playlists (user_id, title, description, cover_url, is_public) VALUES (?, ?, ?, ?, ?)`,
+      [Number(user_id), String(title).trim(), description || null, cover_url || null, is_public ? 1 : 0]
+    );
+
+    const [playlist] = await db.query(
+      `SELECT p.*, u.username AS owner_name FROM playlists p LEFT JOIN users u ON u.user_id = p.user_id WHERE p.playlist_id = ?`,
+      [result.insertId]
+    );
+
+    return res.status(201).json({ message: 'Tạo danh sách phát thành công.', playlist: playlist[0] });
+  } catch (error) {
+    console.error('Lỗi tạo playlist:', error);
+    res.status(500).json({ message: 'Không thể tạo danh sách phát', error: error.message });
+  }
+});
+
 app.get('/api/admin/dashboard', async (req, res) => {
   try {
     const [statsRows] = await db.query(`

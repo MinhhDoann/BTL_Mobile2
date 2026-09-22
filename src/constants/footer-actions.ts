@@ -31,7 +31,7 @@ export function useFooterActions(activeTab: string = 'home'): FooterAction[] {
       active: activeTab === 'library',
       onPress: () => {
         console.log('Chuyển tới Thư viện');
-        // router.push('/library');
+        router.push('/library' as any);
       },
     },
     {
