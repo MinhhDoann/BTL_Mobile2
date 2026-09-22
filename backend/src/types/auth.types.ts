@@ -4,7 +4,7 @@ export interface User {
   user_id: number;
   username: string;
   email: string;
-  role: 'user' | 'admin';
+  role: 'user' | 'admin' | 'artist';
   password_hash?: string;
   avatar_url?: string | null;
   is_premium?: number | boolean;
@@ -15,7 +15,7 @@ export interface PublicUser {
   user_id: number;
   username: string;
   email: string;
-  role: 'user' | 'admin';
+  role: 'user' | 'admin' | 'artist';
 }
 
 export interface Session {

@@ -224,14 +224,13 @@ export default function HomeScreen() {
                   {/* Thịnh hành (aggregated across genres) */}
                   <Text style={[styles.sectionTitle, { marginTop: 6 }]}>Thịnh hành</Text>
                   {(() => {
-                    const allSongs = genresData.flatMap((g) => g.songs || []);
-                    const list = expanded.trending ? allSongs : allSongs.slice(0, itemsPerSection);
+                    const list = expanded.trending ? trendingList : trendingList.slice(0, itemsPerSection);
 
                     return (
                       <View style={styles.sectionContainer}>
                         <View style={styles.sectionHeader}>
                           <View />
-                          {allSongs.length > itemsPerSection && (
+                          {trendingList.length > itemsPerSection && (
                             <TouchableOpacity onPress={() => setExpanded((s) => ({ ...s, trending: !s.trending }))} style={styles.seeAll}>
                               <Text style={styles.seeAllText}>{expanded.trending ? 'Thu gọn' : 'Xem thêm'}</Text>
                             </TouchableOpacity>
@@ -258,15 +257,13 @@ export default function HomeScreen() {
                   {/* Mới (aggregated and sorted by newest) */}
                   <Text style={[styles.sectionTitle, { marginTop: 6 }]}>Mới</Text>
                   {(() => {
-                    const allSongs = genresData.flatMap((g) => g.songs || []);
-                    const sorted = [...allSongs].sort((a, b) => (b.song_id - a.song_id));
-                    const list = expanded.recent ? sorted : sorted.slice(0, itemsPerSection);
+                    const list = expanded.recent ? recentList : recentList.slice(0, itemsPerSection);
 
                     return (
                       <View style={styles.sectionContainer}>
                         <View style={styles.sectionHeader}>
                           <View />
-                          {sorted.length > itemsPerSection && (
+                          {recentList.length > itemsPerSection && (
                             <TouchableOpacity onPress={() => setExpanded((s) => ({ ...s, recent: !s.recent }))} style={styles.seeAll}>
                               <Text style={styles.seeAllText}>{expanded.recent ? 'Thu gọn' : 'Xem thêm'}</Text>
                             </TouchableOpacity>

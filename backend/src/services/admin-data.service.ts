@@ -104,7 +104,7 @@ export function normalize(entity: string, body: any, creating: boolean): any {
     case 'users': {
       const email = text(body.email, 'email', 100, true)!;
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) fail(400, 'Email không hợp lệ.');
-      if (!['user', 'admin'].includes(body.role)) fail(400, 'Role phải là user hoặc admin.');
+      if (!['user', 'admin', 'artist'].includes(body.role)) fail(400, 'Role phải là user, admin hoặc artist.');
       const data: any = {
         username: text(body.username, 'tên người dùng', 50, true),
         email,

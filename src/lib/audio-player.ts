@@ -1,4 +1,5 @@
 import { Audio } from 'expo-av';
+import { recordSongPlay } from './api/artist-api';
 
 export type AudioTrack = {
   songId: number;
@@ -122,6 +123,7 @@ class AudioPlayerService {
 
         this.sound = newSound;
         this.activeSongId = track.songId;
+        void recordSongPlay(track.songId);
         if (initialStatus.isLoaded) {
           this.setState({
             songId: track.songId,

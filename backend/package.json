@@ -4,7 +4,7 @@
   "description": "",
   "main": "src/server.ts",
   "scripts": {
-    "test": "tsx --test test/auth.test.ts test/admin-data.test.ts",
+    "test": "tsx --test test/auth.test.ts test/admin-data.test.ts test/artist.test.ts",
     "set-password": "tsx src/utils/set-password.ts",
     "start": "tsx src/server.ts",
     "dev": "tsx watch src/server.ts",

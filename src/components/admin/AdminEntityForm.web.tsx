@@ -58,7 +58,7 @@ export function AdminEntityForm({ entity, id, dashboard, onClose, onSaved }: Pro
             const value = String(values[field.key] ?? '');
             const required = field.required || (field.key === 'password' && id === null);
             let options: { value: string; label: string }[] = [];
-            if (field.options === 'roles') options = [{ value: 'user', label: 'Người dùng' }, { value: 'admin', label: 'Quản trị viên' }];
+            if (field.options === 'roles') options = [{ value: 'user', label: 'Người dùng' }, { value: 'artist', label: 'Nghệ sĩ' }, { value: 'admin', label: 'Quản trị viên' }];
             if (field.options === 'artists') options = dashboard.artists.map((artist) => ({ value: String(artist.artist_id), label: `${artist.name} (#${artist.artist_id})` }));
             if (field.options === 'albums') options = dashboard.albums.filter((album) => !values.artist_id || album.artist_id === Number(values.artist_id)).map((album) => ({ value: String(album.album_id), label: `${album.title} (#${album.album_id})` }));
             return <label className="admin-field" key={field.key}>

@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 import { detectApiBase } from './detectApi';
 
-export type AuthUser = { user_id: number; username: string; email: string; role: 'user' | 'admin' };
+export type AuthUser = { user_id: number; username: string; email: string; role: 'user' | 'admin' | 'artist' };
 let token: string | null = null;
 const listeners = new Set<() => void>();
 

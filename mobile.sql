@@ -8,7 +8,7 @@ CREATE TABLE users (
     email VARCHAR(100) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
     avatar_url VARCHAR(255),
-    role ENUM('user', 'admin') DEFAULT 'user',
+    role ENUM('user', 'admin', 'artist') DEFAULT 'user',
     is_premium BOOLEAN DEFAULT FALSE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
@@ -16,10 +16,12 @@ CREATE TABLE users (
 -- 3. Bảng Nghệ sĩ (artists)
 CREATE TABLE artists (
     artist_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NULL UNIQUE,
     name VARCHAR(100) NOT NULL,
     bio TEXT,
     avatar_url VARCHAR(255),
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE SET NULL
 );
 
 -- 4. Bảng Album (albums)
@@ -136,7 +138,12 @@ INSERT INTO users (username, email, password_hash, role, is_premium) VALUES
 ('nguyenvana', 'ana@gmail.com', 'hashed_password_456', 'user', FALSE),
 ('tranthib', 'bt thi@gmail.com', 'hashed_password_789', 'user', TRUE),
 ('levanc', 'levanc@gmail.com', 'hashed_password_abc', 'user', FALSE),
-('hoangphuong', 'phuonghn@gmail.com', 'hashed_password_xyz', 'user', TRUE);
+('hoangphuong', 'phuonghn@gmail.com', 'hashed_password_xyz', 'user', TRUE),
+('Sơn Tùng M-TP', 'artist@spotify.com', '123456', 'artist', TRUE),
+('Đen Vâu', 'denvau@artist.com', '123456', 'artist', TRUE),
+('Bích Phương', 'bichphuong@artist.com', '123456', 'artist', TRUE),
+('Hà Anh Tuấn', 'haanhtuan@artist.com', '123456', 'artist', TRUE),
+('W/n', 'wn@artist.com', '123456', 'artist', TRUE);
 
 -- 3. Chèn dữ liệu Nghệ sĩ (Đã bổ sung đủ các nghệ sĩ có trong danh sách bài hát)
 INSERT INTO artists (artist_id, name, bio, avatar_url) VALUES 
