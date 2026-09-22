@@ -30,12 +30,18 @@ function fetchWithTimeout(url: string, timeout = probeTimeout) {
 
 let cachedBase: string | null = null;
 
-export async function detectApiBase(): Promise<string> {
-  if (cachedBase) return cachedBase;
+export async function detectApiBase(forceRefresh = false): Promise<string> {
+  if (cachedBase && !forceRefresh) return cachedBase;
 
   const candidates: string[] = [];
   if (Platform.OS === 'web') {
     candidates.push('http://localhost:3000');
+    if (typeof window !== 'undefined' && window?.location?.hostname) {
+      const host = window.location.hostname;
+      if (host && host !== 'localhost' && host !== '127.0.0.1') {
+        candidates.push(`http://${host}:3000`);
+      }
+    }
   } else {
     candidates.push('http://10.0.2.2:3000');
     candidates.push('http://10.0.3.2:3000');
@@ -57,10 +63,15 @@ export async function detectApiBase(): Promise<string> {
     }
   }
 
-  cachedBase = `http://${FALLBACK_LAN_IP}:3000`;
-  return cachedBase;
+  const fallback = Platform.OS === 'web' ? 'http://localhost:3000' : `http://${FALLBACK_LAN_IP}:3000`;
+  return fallback;
+}
+
+export function resetApiBaseCache() {
+  cachedBase = null;
 }
 
 export function getCachedApiBase(): string | null {
   return cachedBase;
 }
+

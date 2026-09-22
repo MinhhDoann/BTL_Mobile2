@@ -42,28 +42,26 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState<boolean>(true);
   const [playingSongId, setPlayingSongId] = useState<number | null>(null);
 
+  const loadHomeData = useCallback(async (forceRefresh = false) => {
+    try {
+      setLoading(true);
+      const base = await detectApiBase(forceRefresh);
+      await fetchDataFromMySQL(base);
+    } catch (e) {
+      console.error('[Home] detectApiBase error', e);
+      setGenresData([]);
+      setLoading(false);
+    }
+  }, []);
+
   // Gọi API lấy danh sách thể loại và bài hát khi mở màn hình
   useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const base = await detectApiBase();
-        if (!mounted) return;
-        await fetchDataFromMySQL(base);
-      } catch (e) {
-        console.error('[Home] detectApiBase error', e);
-      }
-    })();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
+    loadHomeData();
+  }, [loadHomeData]);
 
   const fetchDataFromMySQL = async (base: string) => {
     const url = `${base}/api/home-data`;
     try {
-      setLoading(true);
       console.log('[Home] fetching', url);
       const response = await fetch(url);
       console.log('[Home] response status', response.status);
@@ -171,8 +169,8 @@ export default function HomeScreen() {
             <ScrollView style={styles.scrollArea} contentContainerStyle={{ paddingBottom: 20 }}>
               {!loading && genresData.length === 0 && (
                 <View style={{ padding: 16 }}>
-                  <Text style={{ color: '#fff', marginBottom: 8 }}>Không có dữ liệu hiển thị trên thiết bị này.</Text>
-                  <Text style={{ color: '#94A3B8', fontSize: 13 }}>
+                  <Text style={{ color: '#fff', marginBottom: 8, fontSize: 16, fontWeight: 'bold' }}>Không có dữ liệu hiển thị trên thiết bị này.</Text>
+                  <Text style={{ color: '#94A3B8', fontSize: 13, marginBottom: 4 }}>
                     Thử các bước:
                   </Text>
                   <Text style={{ color: '#94A3B8', fontSize: 13 }}>• Kiểm tra server backend có đang chạy và lắng nghe trên host đúng (0.0.0.0 hoặc IP máy).
@@ -181,8 +179,22 @@ export default function HomeScreen() {
                   </Text>
                   <Text style={{ color: '#94A3B8', fontSize: 13 }}>• Với thiết bị thật, dùng IP máy dev (ví dụ 192.168.x.y:3000) và đảm bảo cùng mạng Wi‑Fi.
                   </Text>
-                  <Text style={{ color: '#94A3B8', fontSize: 13 }}>• Mở DevTools/console để xem các log fetch (tìm '[Home] fetching').
+                  <Text style={{ color: '#94A3B8', fontSize: 13, marginBottom: 12 }}>• Mở DevTools/console để xem các log fetch (tìm '[Home] fetching').
                   </Text>
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: '#1E293B',
+                      borderColor: '#334155',
+                      borderWidth: 1,
+                      paddingVertical: 10,
+                      paddingHorizontal: 16,
+                      borderRadius: 8,
+                      alignSelf: 'flex-start',
+                    }}
+                    onPress={() => loadHomeData(true)}
+                  >
+                    <Text style={{ color: '#38BDF8', fontWeight: '600' }}>🔄 Thử lại kết nối</Text>
+                  </TouchableOpacity>
                 </View>
               )}
               {tab === 'all' && (
