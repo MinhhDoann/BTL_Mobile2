@@ -4,7 +4,7 @@ export type AdminField = {
   key: string; label: string;
   type?: 'text' | 'number' | 'textarea' | 'date' | 'password' | 'checkbox' | 'select' | 'genres';
   required?: boolean; max?: number;
-  options?: 'artists' | 'albums' | 'roles';
+  options?: 'artists' | 'albums' | 'roles' | 'request_status';
 };
 type EntityConfig = {
   title: string; id: string;
@@ -14,13 +14,14 @@ type EntityConfig = {
 export const ADMIN_ENTITIES: Record<AdminEntity, EntityConfig> = {
   users: {
     title: 'Người dùng', id: 'user_id',
-    columns: [{ key: 'user_id', label: 'ID' }, { key: 'username', label: 'Tên người dùng' }, { key: 'email', label: 'Email' }, { key: 'role', label: 'Role' }, { key: 'is_premium', label: 'Premium' }],
+    columns: [{ key: 'user_id', label: 'ID' }, { key: 'username', label: 'Tên người dùng' }, { key: 'email', label: 'Email' }, { key: 'role', label: 'Role' }, { key: 'is_premium', label: 'Premium' }, { key: 'artist_request_status', label: 'Yêu cầu Artist' }],
     fields: [
       { key: 'username', label: 'Tên người dùng', required: true, max: 50 },
       { key: 'email', label: 'Email', required: true, max: 100 },
       { key: 'password', label: 'Mật khẩu (để trống khi sửa nếu giữ nguyên)', type: 'password', max: 255 },
       { key: 'avatar_url', label: 'Avatar URL', max: 255 },
       { key: 'role', label: 'Role', type: 'select', options: 'roles', required: true },
+      { key: 'artist_request_status', label: 'Trạng thái yêu cầu Artist', type: 'select', options: 'request_status' },
       { key: 'is_premium', label: 'Tài khoản Premium', type: 'checkbox' },
     ],
   },

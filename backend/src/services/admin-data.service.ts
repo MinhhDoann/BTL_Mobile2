@@ -6,7 +6,7 @@ export const entities: Record<EntityName, EntityConfig> = {
   users: {
     id: 'user_id',
     label: 'username',
-    fields: ['username', 'email', 'avatar_url', 'role', 'is_premium', 'created_at'],
+    fields: ['username', 'email', 'avatar_url', 'role', 'is_premium', 'created_at', 'artist_request_status'],
     search: ['t.username', 't.email'],
     joins: '',
     extra: '',
@@ -111,6 +111,7 @@ export function normalize(entity: string, body: any, creating: boolean): any {
         avatar_url: url('avatar_url'),
         role: body.role,
         is_premium: boolean(body.is_premium, 'Premium'),
+        artist_request_status: text(body.artist_request_status, 'artist_request_status', 20) || 'none',
       };
       if (creating || (body.password !== '' && body.password !== undefined)) {
         data.password_hash = text(body.password, 'mật khẩu', 255, true, false);

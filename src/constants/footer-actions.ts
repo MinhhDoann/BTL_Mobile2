@@ -41,8 +41,7 @@ export function useFooterActions(activeTab: string = 'home'): FooterAction[] {
       icon: 'music.note',
       active: activeTab === 'register',
       onPress: () => {
-        console.log('Chuyển tới Đăng ký');
-        // router.push('/register');
+        // Không làm gì cả theo yêu cầu
       },
     },
     ...(user?.role === 'artist' || user?.role === 'admin' ? [{

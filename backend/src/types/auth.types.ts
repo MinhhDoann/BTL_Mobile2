@@ -9,6 +9,7 @@ export interface User {
   avatar_url?: string | null;
   is_premium?: number | boolean;
   created_at?: string;
+  artist_request_status?: string;
 }
 
 export interface PublicUser {
@@ -16,6 +17,7 @@ export interface PublicUser {
   username: string;
   email: string;
   role: 'user' | 'admin' | 'artist';
+  artist_request_status?: string;
 }
 
 export interface Session {

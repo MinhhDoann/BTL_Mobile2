@@ -13,7 +13,7 @@ export default function LoginScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   if (loading) return <ActivityIndicator accessibilityLabel="Đang kiểm tra đăng nhập" />;
-  if (user) return <Redirect href={next === 'admin' && Platform.OS === 'web' && user.role === 'admin' ? '/admin' : '/'} />;
+  if (user) return <Redirect href={next === 'admin' && Platform.OS === 'web' && user.role === 'admin' ? '/admin' : '/profile'} />;
   async function submit() {
     if (busy) return;
     if (!email.trim() || !password) { setError('Vui lòng nhập email và mật khẩu.'); return; }
@@ -39,7 +39,10 @@ export default function LoginScreen() {
             <Pressable accessibilityRole="button" disabled={busy} onPress={submit} style={[styles.button, busy && { opacity: 0.5 }]}>
               <Text style={styles.buttonText}>{busy ? 'Đang đăng nhập...' : 'Đăng nhập'}</Text>
             </Pressable>
-            <Pressable accessibilityRole="link" onPress={() => router.replace('/')}><Text style={styles.back}>Về trang chủ</Text></Pressable>
+            <View style={styles.links}>
+              <Pressable accessibilityRole="link" onPress={() => router.push('/register')}><Text style={styles.link}>Đăng ký tài khoản</Text></Pressable>
+              <Pressable accessibilityRole="link" onPress={() => router.replace('/')}><Text style={styles.link}>Về trang chủ</Text></Pressable>
+            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -58,5 +61,6 @@ const styles = StyleSheet.create({
   error: { color: '#FDA4AF', marginBottom: 16 },
   button: { backgroundColor: '#8B5CF6', padding: 15, borderRadius: 10, alignItems: 'center' },
   buttonText: { color: '#FFF', fontWeight: '700' },
-  back: { color: '#A5B4FC', textAlign: 'center', marginTop: 22 },
+  links: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 22 },
+  link: { color: '#A5B4FC', textAlign: 'center' },
 });
