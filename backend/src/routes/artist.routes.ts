@@ -35,20 +35,37 @@ export function createArtistRouter(db: any): Router {
     };
   }
 
-  // Route công khai cho người dùng đăng nhập để nâng cấp lên Nghệ sĩ
   router.post('/register', async (req: AuthRequest, res: Response) => {
     if (!req.user) {
       return res.status(401).json({ message: 'Vui lòng đăng nhập để nâng cấp tài khoản.' });
     }
 
     try {
-      await db.query('UPDATE users SET role = "artist" WHERE user_id = ?', [req.user.user_id]);
-      req.user.role = 'artist';
+      const { bio, avatar_url, address } = req.body || {};
+      const fullBio = (address ? `Địa chỉ: ${address}\n\n` : '') + (bio || 'Chưa có tiểu sử.');
+      const avatar = avatar_url || (req.user as any).avatar_url || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400';
+      
+      await db.query('UPDATE users SET artist_request_status = "pending", avatar_url = ? WHERE user_id = ?', [avatar, req.user.user_id]);
+      req.user.artist_request_status = 'pending';
+      
+      const [existing]: [any[], any] = await db.query('SELECT artist_id FROM artists WHERE user_id = ? LIMIT 1', [req.user.user_id]);
+      let artist;
+      if (existing && existing.length > 0) {
+        await db.query('UPDATE artists SET bio = ?, avatar_url = ? WHERE user_id = ?', [fullBio, avatar, req.user.user_id]);
+        const [updated]: [any[], any] = await db.query('SELECT * FROM artists WHERE user_id = ?', [req.user.user_id]);
+        artist = updated[0];
+      } else {
+        const name = req.user.username || `Nghệ sĩ #${req.user.user_id}`;
+        const [result]: [any, any] = await db.query(
+          'INSERT INTO artists (name, bio, avatar_url, user_id) VALUES (?, ?, ?, ?)',
+          [name, fullBio, avatar, req.user.user_id]
+        );
+        artist = { artist_id: result.insertId, name, bio: fullBio, avatar_url: avatar, user_id: req.user.user_id };
+      }
 
-      const artist = await getOrCreateArtist(req.user);
       return res.json({
-        message: 'Chúc mừng bạn đã trở thành Nghệ sĩ!',
-        user: req.user,
+        message: 'Yêu cầu nâng cấp nghệ sĩ đã được gửi và đang chờ admin phê duyệt!',
+        user: req.user, // role is still 'user'
         artist,
       });
     } catch (error: any) {

@@ -49,28 +49,15 @@ export function AppHeader({ title, onBackPress, rightAction }: AppHeaderProps) {
           accessibilityRole="button"
           disabled={loading || busy}
           style={styles.button}
-          onPress={async () => {
+          onPress={() => {
             if (!user) {
               router.push('/login');
-              return;
-            }
-            setBusy(true);
-            setError('');
-            try {
-              await logout();
-            } catch {
-              setError('Đăng xuất thất bại. Thử lại.');
-            } finally {
-              setBusy(false);
+            } else {
+              router.push('/profile' as any);
             }
           }}>
-          <Text style={{ color: '#FFFFFF' }}>{busy ? 'Đang đăng xuất...' : user ? 'Đăng xuất' : 'Đăng nhập'}</Text>
+          <Text style={{ color: '#FFFFFF' }}>{user ? 'Cá nhân' : 'Đăng nhập'}</Text>
         </Pressable>
-        {error ? (
-          <Text accessibilityRole="alert" style={{ color: '#FDA4AF', fontSize: 11 }}>
-            {error}
-          </Text>
-        ) : null}
       </View>
     </View>
   );

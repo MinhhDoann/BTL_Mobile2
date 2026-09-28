@@ -7,6 +7,8 @@ type AuthContextValue = {
   loading: boolean;
   login: (email: string, password: string) => Promise<AuthUser>;
   logout: () => Promise<void>;
+  register: (data: any) => Promise<AuthUser>;
+  upgrade: (data: any) => Promise<AuthUser>;
 };
 const AuthContext = createContext<AuthContextValue | null>(null);
 
@@ -48,7 +50,21 @@ export function AuthProvider({ children }: PropsWithChildren) {
     setAuthToken(null);
     setUser(null);
   }
-  return <AuthContext.Provider value={{ user, loading, login, logout }}>{children}</AuthContext.Provider>;
+  async function register(data: any) {
+    const { registerUser } = await import('@/src/lib/api/auth-api');
+    const result = await registerUser(data);
+    setAuthToken(result.token);
+    revision.current++;
+    setUser(result.user);
+    return result.user;
+  }
+  async function upgrade(data: any) {
+    const { upgradeToArtist } = await import('@/src/lib/api/auth-api');
+    const updatedUser = await upgradeToArtist(data);
+    setUser(updatedUser);
+    return updatedUser;
+  }
+  return <AuthContext.Provider value={{ user, loading, login, logout, register, upgrade }}>{children}</AuthContext.Provider>;
 }
 export function useAuth() {
   const context = useContext(AuthContext);
