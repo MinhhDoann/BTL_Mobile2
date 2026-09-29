@@ -1,6 +1,6 @@
 import { Footer } from '@/src/components/ui/footer';
-import { MiniPlayer } from '@/src/components/ui/mini-player';
 import { LibraryItem, LibraryItemData } from '@/src/components/ui/library-item';
+import { MiniPlayer } from '@/src/components/ui/mini-player';
 import { useFooterActions } from '@/src/constants/footer-actions';
 import { detectApiBase } from '@/src/lib/api/detectApi';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
