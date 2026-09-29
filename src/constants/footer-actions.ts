@@ -13,6 +13,7 @@ export function useFooterActions(activeTab: string = 'home'): FooterAction[] {
       icon: 'house.fill',
       active: activeTab === 'home',
       onPress: () => {
+        if (activeTab === 'home') return;
         router.push('/' as any);
       },
     },
@@ -21,6 +22,7 @@ export function useFooterActions(activeTab: string = 'home'): FooterAction[] {
       icon: 'magnifyingglass',
       active: activeTab === 'search',
       onPress: () => {
+        if (activeTab === 'search') return;
         console.log('Chuyển tới Tìm kiếm');
         router.push('/search' as any);
       },
@@ -39,10 +41,18 @@ export function useFooterActions(activeTab: string = 'home'): FooterAction[] {
       icon: 'music.note',
       active: activeTab === 'register',
       onPress: () => {
-        console.log('Chuyển tới Đăng ký');
-        // router.push('/register');
+        // Không làm gì cả theo yêu cầu
       },
     },
+    ...(user?.role === 'artist' || user?.role === 'admin' ? [{
+      title: 'Studio',
+      icon: 'mic.fill' as any,
+      active: activeTab === 'artist-studio',
+      onPress: () => {
+        if (activeTab === 'artist-studio') return;
+        router.push('/artist-studio' as any);
+      },
+    }] : []),
     ...(user?.role === 'admin' ? [{
       title: 'Quản lý',
       icon: 'shield.fill',

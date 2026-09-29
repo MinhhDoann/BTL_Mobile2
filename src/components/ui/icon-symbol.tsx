@@ -23,6 +23,7 @@ const MAPPING = {
   'music.note': 'music-note',
   'plus': 'add',
   'shield.fill': 'admin-panel-settings',
+  'mic.fill': 'mic',
 } as IconMapping;
 
 /**

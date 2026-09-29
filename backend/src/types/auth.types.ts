@@ -4,18 +4,20 @@ export interface User {
   user_id: number;
   username: string;
   email: string;
-  role: 'user' | 'admin';
+  role: 'user' | 'admin' | 'artist';
   password_hash?: string;
   avatar_url?: string | null;
   is_premium?: number | boolean;
   created_at?: string;
+  artist_request_status?: string;
 }
 
 export interface PublicUser {
   user_id: number;
   username: string;
   email: string;
-  role: 'user' | 'admin';
+  role: 'user' | 'admin' | 'artist';
+  artist_request_status?: string;
 }
 
 export interface Session {

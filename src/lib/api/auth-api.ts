@@ -1,9 +1,23 @@
 import { Platform } from 'react-native';
 import { detectApiBase } from './detectApi';
 
-export type AuthUser = { user_id: number; username: string; email: string; role: 'user' | 'admin' };
+export type AuthUser = { user_id: number; username: string; email: string; role: 'user' | 'admin' | 'artist'; avatar_url?: string; address?: string; bio?: string; artist_request_status?: string };
 let token: string | null = null;
 const listeners = new Set<() => void>();
+
+export async function registerUser(data: any): Promise<{ token: string; user: AuthUser }> {
+  const result = await apiRequest<{ token: string; user: AuthUser }>('/api/auth/register', {
+    method: 'POST', body: JSON.stringify(data),
+  });
+  return result;
+}
+
+export async function upgradeToArtist(data: any): Promise<AuthUser> {
+  const result = await apiRequest<{ user: AuthUser, artist: any }>('/api/artist/register', {
+    method: 'POST', body: JSON.stringify(data),
+  });
+  return result.user;
+}
 
 export function setAuthToken(value: string | null) {
   token = value;

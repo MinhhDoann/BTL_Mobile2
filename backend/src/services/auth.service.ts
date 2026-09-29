@@ -26,6 +26,7 @@ export interface AuthServiceResult {
   router: Router;
   authenticate: (req: AuthRequest, res: Response, next: NextFunction) => Promise<any>;
   requireAdmin: (req: AuthRequest, res: Response, next: NextFunction) => void;
+  requireArtist: (req: AuthRequest, res: Response, next: NextFunction) => void;
   close: () => void;
 }
 
@@ -35,11 +36,12 @@ export function createAuth(db: DbQueryable, { now = Date.now }: AuthOptions = {}
   const attempts = new Map<string, LoginAttempt>();
 
   const tokenKey = (token: string): string => createHash('sha256').update(token).digest('hex');
-  const publicUser = ({ user_id, username, email, role }: User): PublicUser => ({
+  const publicUser = ({ user_id, username, email, role, artist_request_status }: User): PublicUser => ({
     user_id,
     username,
     email,
     role,
+    artist_request_status,
   });
 
   const cleanup = setInterval(() => {
@@ -65,7 +67,7 @@ export function createAuth(db: DbQueryable, { now = Date.now }: AuthOptions = {}
 
     try {
       const [rows] = await db.query(
-        'SELECT user_id, username, email, role FROM users WHERE user_id = ?',
+        'SELECT user_id, username, email, role, artist_request_status FROM users WHERE user_id = ?',
         [session.userId]
       );
       if (!rows || !rows.length) {
@@ -111,7 +113,7 @@ export function createAuth(db: DbQueryable, { now = Date.now }: AuthOptions = {}
 
     try {
       const [rows] = await db.query(
-        'SELECT user_id, username, email, role, password_hash FROM users WHERE email = ? LIMIT 1',
+        'SELECT user_id, username, email, role, password_hash, artist_request_status FROM users WHERE email = ? LIMIT 1',
         [email.trim()]
       );
       const user = rows?.[0];
@@ -125,6 +127,63 @@ export function createAuth(db: DbQueryable, { now = Date.now }: AuthOptions = {}
       res.json({ token, user: publicUser(user) });
     } catch {
       res.status(503).json({ message: 'Không thể đăng nhập lúc này.' });
+    }
+  });
+
+  router.post('/register', async (req: Request, res: Response) => {
+    const { username, email, password, role, avatar_url, bio } = req.body ?? {};
+    if (!username || !email || !password) {
+      return res.status(400).json({ message: 'Vui lòng nhập đầy đủ thông tin.' });
+    }
+    
+    try {
+      const [existing]: [any[], any] = await db.query('SELECT user_id FROM users WHERE email = ?', [email.trim()]);
+      if (existing && existing.length > 0) {
+        return res.status(400).json({ message: 'Email đã được sử dụng.' });
+      }
+      
+      const isRequestingArtist = role === 'artist';
+      const insertRole = 'user'; // All new accounts start as user
+      const requestStatus = isRequestingArtist ? 'pending' : 'none';
+      let result: any;
+      try {
+        const [insertRes] = await db.query(
+          'INSERT INTO users (username, email, password_hash, role, avatar_url, artist_request_status) VALUES (?, ?, ?, ?, ?, ?)',
+          [username.trim(), email.trim(), password, insertRole, avatar_url || null, requestStatus]
+        );
+        result = insertRes;
+      } catch (e: any) {
+        if (e.message && e.message.includes('avatar_url')) {
+          const [insertRes] = await db.query(
+            'INSERT INTO users (username, email, password_hash, role, artist_request_status) VALUES (?, ?, ?, ?, ?)',
+            [username.trim(), email.trim(), password, insertRole, requestStatus]
+          );
+          result = insertRes;
+        } else {
+          throw e;
+        }
+      }
+      
+      const userId = result.insertId;
+      
+      if (isRequestingArtist) {
+        const { bio, address } = req.body ?? {};
+        const fullBio = (address ? `Địa chỉ: ${address}\n\n` : '') + (bio || 'Chưa có tiểu sử.');
+        const name = username.trim();
+        const avatar = avatar_url || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400';
+        await db.query(
+          'INSERT INTO artists (name, bio, avatar_url, user_id) VALUES (?, ?, ?, ?)',
+          [name, fullBio, avatar, userId]
+        );
+      }
+      
+      const user = { user_id: userId, username: username.trim(), email: email.trim(), role: insertRole, artist_request_status: requestStatus };
+      const token = randomBytes(32).toString('hex');
+      sessions.set(tokenKey(token), { userId: user.user_id, expires: now() + SESSION_TTL });
+      res.json({ token, user: publicUser(user as any) });
+    } catch (err: any) {
+      console.error(err);
+      res.status(503).json({ message: 'Không thể đăng ký lúc này.' });
     }
   });
 
@@ -149,5 +208,15 @@ export function createAuth(db: DbQueryable, { now = Date.now }: AuthOptions = {}
     });
   }
 
-  return { router, authenticate, requireAdmin, close: () => clearInterval(cleanup) };
+  function requireArtist(req: AuthRequest, res: Response, next: NextFunction) {
+    authenticate(req, res, () => {
+      if (req.user?.role !== 'artist' && req.user?.role !== 'admin') {
+        return res.status(403).json({ message: 'Chỉ nghệ sĩ hoặc quản trị viên được phép thực hiện thao tác này.' });
+      }
+      res.set('Cache-Control', 'no-store');
+      next();
+    });
+  }
+
+  return { router, authenticate, requireAdmin, requireArtist, close: () => clearInterval(cleanup) };
 }

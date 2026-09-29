@@ -1,9 +1,9 @@
+import { AuthProvider } from '@/src/contexts/auth';
 import { DarkTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { AuthProvider } from '@/src/contexts/auth';
 
 
 export const unstable_settings = {
@@ -18,6 +18,7 @@ export default function RootLayout() {
           <Stack>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="admin" options={{ headerShown: false }} />
+            <Stack.Screen name="artist-studio" options={{ headerShown: false }} />
             <Stack.Screen name="playlist-detail" options={{ headerShown: false }} />
             <Stack.Screen name="song-detail" options={{ headerShown: false, presentation: 'modal', animation: 'slide_from_bottom' }} />
             <Stack.Screen name="login" options={{ headerShown: false }} />

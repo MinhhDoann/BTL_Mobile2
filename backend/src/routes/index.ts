@@ -6,6 +6,7 @@ import { playlistRouter } from './playlist.routes';
 import { songsRouter } from './songs.routes';
 import { adminRouter } from './admin.routes';
 import { createAdminDataRouter } from './admin-data.routes';
+import { createArtistRouter } from './artist.routes';
 
 export function createApiRouter(customDb = db, authService = createAuth(customDb)): Router {
   const router = Router();
@@ -29,6 +30,9 @@ export function createApiRouter(customDb = db, authService = createAuth(customDb
 
   // Song details: /api/songs/*
   router.use('/api/songs', songsRouter);
+
+  // Artist routes: /api/artist/*
+  router.use('/api/artist', authService.authenticate as any, createArtistRouter(customDb));
 
   // Admin routes: /api/admin/*
   router.use('/api/admin', authService.requireAdmin as any);
