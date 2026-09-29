@@ -1,5 +1,6 @@
-import { LibraryItem, LibraryItemData } from '@/src/components/ui/library-item';
 import { Footer } from '@/src/components/ui/footer';
+import { MiniPlayer } from '@/src/components/ui/mini-player';
+import { LibraryItem, LibraryItemData } from '@/src/components/ui/library-item';
 import { useFooterActions } from '@/src/constants/footer-actions';
 import { detectApiBase } from '@/src/lib/api/detectApi';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
@@ -10,14 +11,13 @@ import {
   FlatList,
   Image,
   Modal,
-  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -31,10 +31,10 @@ export default function LibraryScreen() {
 
   // Filter category state (Tất cả, Danh sách phát, Album, Nghệ sĩ - Đã loại bỏ Podcast)
   const [selectedFilter, setSelectedFilter] = useState<FilterCategory>('all');
-  
+
   // Layout mode state (dạng danh sách 'list' hoặc dạng lưới 'grid')
   const [layoutMode, setLayoutMode] = useState<'list' | 'grid'>('list');
-  
+
   // Sort order ('recent' | 'name')
   const [sortOrder, setSortOrder] = useState<'recent' | 'name'>('recent');
 
@@ -166,11 +166,13 @@ export default function LibraryScreen() {
   };
 
   const handlePressItem = (item: LibraryItemData) => {
-    console.log('Pressed library item:', item.title);
-    if (item.type === 'artist') {
+    console.log('Pressed library item:', item.title, item.type);
+    if (item.type === 'playlist' || item.type === 'single') {
+      router.push({ pathname: '/playlist-detail', params: { playlistId: String(item.id) } });
+    } else if (item.type === 'artist') {
       router.push({ pathname: '/search', params: { q: item.title } });
     } else {
-      router.push({ pathname: '/search' });
+      router.push({ pathname: '/playlist-detail', params: { playlistId: String(item.id) } });
     }
   };
 
@@ -388,6 +390,7 @@ export default function LibraryScreen() {
           </View>
         </Modal>
 
+        <MiniPlayer />
         {/* --- FOOTER CHUNG --- */}
         <Footer actions={footerActions} />
       </View>

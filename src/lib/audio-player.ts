@@ -3,6 +3,9 @@ import { Audio } from 'expo-av';
 export type AudioTrack = {
   songId: number;
   audioUrl: string;
+  title?: string;
+  artistName?: string;
+  coverUrl?: string;
 };
 
 export type PlayerState = {
@@ -10,6 +13,9 @@ export type PlayerState = {
   isPlaying: boolean;
   positionMs: number;
   durationMs: number;
+  title?: string;
+  artistName?: string;
+  coverUrl?: string;
 };
 
 type Listener = (state: PlayerState) => void;
@@ -26,6 +32,9 @@ class AudioPlayerService {
     isPlaying: false,
     positionMs: 0,
     durationMs: 0,
+    title: undefined,
+    artistName: undefined,
+    coverUrl: undefined,
   };
   private loading: Promise<void> | null = null;
 
@@ -59,7 +68,15 @@ class AudioPlayerService {
     this.playbackVersion += 1;
     this.sound = null;
     this.activeSongId = null;
-    this.setState({ songId: null, isPlaying: false, positionMs: 0, durationMs: 0 });
+    this.setState({
+      songId: null,
+      isPlaying: false,
+      positionMs: 0,
+      durationMs: 0,
+      title: undefined,
+      artistName: undefined,
+      coverUrl: undefined,
+    });
 
     if (!soundToStop) return;
 
@@ -111,6 +128,9 @@ class AudioPlayerService {
               positionMs: status.positionMillis ?? 0,
               durationMs: status.durationMillis ?? 0,
               isPlaying: status.isPlaying,
+              title: track.title ?? this.state.title,
+              artistName: track.artistName ?? this.state.artistName,
+              coverUrl: track.coverUrl ?? this.state.coverUrl,
             });
           }
         );
@@ -128,6 +148,9 @@ class AudioPlayerService {
             isPlaying: initialStatus.isPlaying,
             positionMs: initialStatus.positionMillis ?? 0,
             durationMs: initialStatus.durationMillis ?? 0,
+            title: track.title,
+            artistName: track.artistName,
+            coverUrl: track.coverUrl,
           });
         }
       } catch (error) {
@@ -163,30 +186,55 @@ class AudioPlayerService {
     try {
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: false,
-        interruptionModeIOS: Audio.INTERRUPTION_MODE_IOS_DO_NOT_MIX,
         playsInSilentModeIOS: true,
         staysActiveInBackground: true,
-        interruptionModeAndroid: Audio.INTERRUPTION_MODE_ANDROID_DO_NOT_MIX,
         shouldDuckAndroid: false,
         playThroughEarpieceAndroid: false,
       });
       this.initialized = true;
     } catch (e) {
       console.warn('Failed to set audio mode:', e);
+      this.initialized = true;
     }
   }
 
   async skip(amountMs: number) {
-    if (!this.sound) return;
+    if (!this.sound || !Number.isFinite(amountMs)) return;
 
-    const status = await this.sound.getStatusAsync();
-    if (!status.isLoaded) return;
+    try {
+      const status = await this.sound.getStatusAsync();
+      if (!status.isLoaded) return;
 
-    const current = status.positionMillis ?? 0;
-    const duration = status.durationMillis ?? current;
-    const next = Math.min(Math.max(current + amountMs, 0), duration);
-    await this.sound.setPositionAsync(next);
-    this.setState({ positionMs: next });
+      const current = status.positionMillis && Number.isFinite(status.positionMillis) ? status.positionMillis : 0;
+      const duration = status.durationMillis && Number.isFinite(status.durationMillis) ? status.durationMillis : current;
+      const next = Math.round(Math.min(Math.max(current + amountMs, 0), duration));
+
+      if (Number.isFinite(next)) {
+        await this.sound.setPositionAsync(next);
+        this.setState({ positionMs: next });
+      }
+    } catch (e) {
+      console.warn('skip error:', e);
+    }
+  }
+
+  async seekTo(positionMs: number) {
+    if (!this.sound || !Number.isFinite(positionMs)) return;
+
+    try {
+      const status = await this.sound.getStatusAsync();
+      if (!status.isLoaded) return;
+
+      const duration = status.durationMillis && Number.isFinite(status.durationMillis) ? status.durationMillis : positionMs;
+      const next = Math.round(Math.min(Math.max(positionMs, 0), duration));
+
+      if (Number.isFinite(next)) {
+        await this.sound.setPositionAsync(next);
+        this.setState({ positionMs: next });
+      }
+    } catch (e) {
+      console.warn('seekTo error:', e);
+    }
   }
 
   async getStatus() {

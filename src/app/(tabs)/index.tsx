@@ -1,5 +1,6 @@
 import { AppHeader } from '@/src/components/ui/app-header';
 import { Footer } from '@/src/components/ui/footer';
+import { MiniPlayer } from '@/src/components/ui/mini-player';
 import { useFooterActions } from '@/src/constants/footer-actions';
 import { detectApiBase } from '@/src/lib/api/detectApi';
 import { audioPlayer } from '@/src/lib/audio-player';
@@ -111,15 +112,22 @@ export default function HomeScreen() {
   const trendingList = useMemo(() => allSongs, [allSongs]);
   const recentList = useMemo(() => [...allSongs].sort((a, b) => b.song_id - a.song_id), [allSongs]);
 
-  const onPressSong = useCallback((songId: number) => {
-    router.push({ pathname: '/song-detail', params: { songId: String(songId) } });
+  const onPressSong = useCallback(async (song: Song) => {
+    await audioPlayer.playTrack({
+      songId: song.song_id,
+      audioUrl: song.audio_url,
+      title: song.title,
+      artistName: song.artist_name,
+      coverUrl: song.cover_url,
+    });
+    router.navigate({ pathname: '/song-detail', params: { songId: String(song.song_id) } });
   }, [router]);
 
   const SongCard = useCallback(({ item }: { item: Song }) => {
     return (
       <TouchableOpacity
         style={[styles.songCard, { width: itemWidth, marginRight: 12 }]}
-        onPress={() => onPressSong(item.song_id)}
+        onPress={() => onPressSong(item)}
       >
         <View style={[styles.thumbWrap, { width: itemWidth, height: itemWidth }]}>
           <Image
@@ -297,6 +305,7 @@ export default function HomeScreen() {
           )}
         </View>
 
+        <MiniPlayer />
         <Footer actions={footerActions} />
       </View>
     </SafeAreaView>

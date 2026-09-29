@@ -18,7 +18,8 @@ export default function RootLayout() {
           <Stack>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="admin" options={{ headerShown: false }} />
-            <Stack.Screen name="song-detail" options={{ headerShown: false }} />
+            <Stack.Screen name="playlist-detail" options={{ headerShown: false }} />
+            <Stack.Screen name="song-detail" options={{ headerShown: false, presentation: 'modal', animation: 'slide_from_bottom' }} />
             <Stack.Screen name="login" options={{ headerShown: false }} />
           </Stack>
           <StatusBar style="light" />

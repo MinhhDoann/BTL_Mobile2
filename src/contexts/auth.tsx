@@ -50,8 +50,15 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }
   return <AuthContext.Provider value={{ user, loading, login, logout }}>{children}</AuthContext.Provider>;
 }
-export function useAuth() {
+export function useAuth(): AuthContextValue {
   const context = useContext(AuthContext);
-  if (!context) throw new Error('useAuth requires AuthProvider');
+  if (!context) {
+    return {
+      user: null,
+      loading: false,
+      login: async () => ({ user_id: 0, username: '', email: '', role: 'user' }),
+      logout: async () => {},
+    };
+  }
   return context;
 }

@@ -1,5 +1,7 @@
 import { AppHeader } from '@/src/components/ui/app-header';
 import { Footer } from '@/src/components/ui/footer';
+import { MiniPlayer } from '@/src/components/ui/mini-player';
+import { audioPlayer } from '@/src/lib/audio-player';
 import { useFooterActions } from '@/src/constants/footer-actions';
 import { getCoverUrl } from '@/src/lib/cover-image';
 import { useRouter } from 'expo-router';
@@ -157,7 +159,16 @@ export default function SearchScreen() {
                   key={song.id}
                   style={styles.songRow}
                   activeOpacity={0.8}
-                  onPress={() => router.push({ pathname: '/song-detail', params: { songId: String(song.id) } })}
+                  onPress={async () => {
+                    await audioPlayer.playTrack({
+                      songId: song.id,
+                      audioUrl: '',
+                      title: song.title,
+                      artistName: song.artist,
+                      coverUrl: song.cover,
+                    });
+                    router.navigate({ pathname: '/song-detail', params: { songId: String(song.id) } });
+                  }}
                 >
                   <Image source={{ uri: song.cover }} style={styles.cover} />
                   <View style={styles.songInfo}>
@@ -171,6 +182,7 @@ export default function SearchScreen() {
           )}
         </ScrollView>
 
+        <MiniPlayer />
         <Footer actions={footerActions} />
       </View>
     </SafeAreaView>
