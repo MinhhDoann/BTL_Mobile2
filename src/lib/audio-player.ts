@@ -1,9 +1,12 @@
-import { Audio } from 'expo-av';
+import { Audio, InterruptionModeIOS, InterruptionModeAndroid } from 'expo-av';
 import { recordSongPlay } from './api/artist-api';
 
 export type AudioTrack = {
   songId: number;
   audioUrl: string;
+  title?: string;
+  coverUrl?: string | null;
+  artist?: string;
 };
 
 export type PlayerState = {
@@ -11,6 +14,9 @@ export type PlayerState = {
   isPlaying: boolean;
   positionMs: number;
   durationMs: number;
+  title?: string;
+  coverUrl?: string | null;
+  artist?: string;
 };
 
 type Listener = (state: PlayerState) => void;
@@ -60,7 +66,7 @@ class AudioPlayerService {
     this.playbackVersion += 1;
     this.sound = null;
     this.activeSongId = null;
-    this.setState({ songId: null, isPlaying: false, positionMs: 0, durationMs: 0 });
+    this.setState({ songId: null, isPlaying: false, positionMs: 0, durationMs: 0, title: undefined, coverUrl: undefined, artist: undefined });
 
     if (!soundToStop) return;
 
@@ -79,7 +85,14 @@ class AudioPlayerService {
     }
 
     this.loading = (async () => {
-      const safeUrl = track.audioUrl || 'https://interactive-examples.mdn.mozilla.net/media/cc0-audio/t-rex-roar.mp3';
+      let safeUrl = track.audioUrl || 'https://interactive-examples.mdn.mozilla.net/media/cc0-audio/t-rex-roar.mp3';
+      
+      // Basic validation for URL
+      if (!safeUrl.startsWith('http://') && !safeUrl.startsWith('https://') && !safeUrl.startsWith('file://')) {
+        console.warn('Invalid audio URL format:', safeUrl);
+        // Fallback to a valid URL to avoid crashing Expo/iOS player with code -1002
+        safeUrl = 'https://interactive-examples.mdn.mozilla.net/media/cc0-audio/t-rex-roar.mp3';
+      }
 
       if (this.sound && this.activeSongId === track.songId) {
         const status = await this.sound.getStatusAsync();
@@ -130,6 +143,9 @@ class AudioPlayerService {
             isPlaying: initialStatus.isPlaying,
             positionMs: initialStatus.positionMillis ?? 0,
             durationMs: initialStatus.durationMillis ?? 0,
+            title: track.title,
+            coverUrl: track.coverUrl,
+            artist: track.artist,
           });
         }
       } catch (error) {
@@ -165,10 +181,10 @@ class AudioPlayerService {
     try {
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: false,
-        interruptionModeIOS: Audio.INTERRUPTION_MODE_IOS_DO_NOT_MIX,
+        interruptionModeIOS: InterruptionModeIOS.DoNotMix,
         playsInSilentModeIOS: true,
         staysActiveInBackground: true,
-        interruptionModeAndroid: Audio.INTERRUPTION_MODE_ANDROID_DO_NOT_MIX,
+        interruptionModeAndroid: InterruptionModeAndroid.DoNotMix,
         shouldDuckAndroid: false,
         playThroughEarpieceAndroid: false,
       });
