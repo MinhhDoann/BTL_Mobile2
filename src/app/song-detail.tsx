@@ -137,11 +137,15 @@ export default function SongDetailScreen() {
     });
   };
 
-  useEffect(() => {
-    if (detail && currentSongId !== detail.song_id) {
-      playSong(detail);
-    }
-  }, [detail]);
+  const playSong = async (trackSong: RelatedSong | SongDetailItem) => {
+    await audioPlayer.playTrack({ 
+      songId: trackSong.song_id, 
+      audioUrl: trackSong.audio_url,
+      title: trackSong.title,
+      coverUrl: trackSong.cover_url,
+      artist: trackSong.artist_name,
+    });
+  };
 
   const handleTogglePlay = async () => {
     if (!detail) return;

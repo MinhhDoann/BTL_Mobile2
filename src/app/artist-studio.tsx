@@ -19,6 +19,7 @@ import { audioPlayer } from '@/src/lib/audio-player';
 import { getCoverUrl } from '@/src/lib/cover-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { pickAndUploadAudio } from '@/src/lib/upload';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -71,6 +72,7 @@ export default function ArtistStudioScreen() {
   const [uploadLyrics, setUploadLyrics] = useState('');
   const [selectedGenres, setSelectedGenres] = useState<number[]>([1]);
   const [uploading, setUploading] = useState(false);
+  const [isPickingFile, setIsPickingFile] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [uploadSuccess, setUploadSuccess] = useState('');
 
@@ -145,7 +147,13 @@ export default function ArtistStudioScreen() {
     if (playingSongId === song.song_id) {
       await audioPlayer.togglePlay();
     } else {
-      await audioPlayer.playTrack({ songId: song.song_id, audioUrl: song.audio_url });
+      await audioPlayer.playTrack({
+        songId: song.song_id,
+        audioUrl: song.audio_url,
+        title: song.title,
+        coverUrl: song.cover_url,
+        artist: profile?.name,
+      });
     }
   };
 
@@ -218,6 +226,21 @@ export default function ArtistStudioScreen() {
       setUploadError(err.message || 'Đăng bài hát thất bại. Vui lòng thử lại.');
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handlePickAudio = async () => {
+    try {
+      setIsPickingFile(true);
+      setUploadError('');
+      const url = await pickAndUploadAudio();
+      if (url) {
+        setUploadAudioUrl(url);
+      }
+    } catch (err: any) {
+      setUploadError(err.message || 'Lỗi khi tải file lên Cloudinary');
+    } finally {
+      setIsPickingFile(false);
     }
   };
 
@@ -671,6 +694,17 @@ export default function ArtistStudioScreen() {
                 value={uploadAudioUrl}
                 onChangeText={setUploadAudioUrl}
               />
+              <TouchableOpacity
+                style={[styles.secondaryButton, { marginTop: 8, marginBottom: 16 }]}
+                onPress={handlePickAudio}
+                disabled={isPickingFile}
+              >
+                {isPickingFile ? (
+                  <ActivityIndicator color="#E2E8F0" />
+                ) : (
+                  <Text style={styles.secondaryButtonText}>📤 Chọn file từ máy (Upload qua Cloudinary)</Text>
+                )}
+              </TouchableOpacity>
 
               {/* Cover Image URL */}
               <Text style={styles.inputLabel}>Link Ảnh bìa (Cover URL)</Text>

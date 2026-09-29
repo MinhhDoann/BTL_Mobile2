@@ -10,7 +10,7 @@ export interface User {
   is_premium?: number | boolean;
   created_at?: string;
   artist_request_status?: string;
-}
+  }
 
 export interface PublicUser {
   user_id: number;

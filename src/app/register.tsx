@@ -124,7 +124,7 @@ export default function RegisterScreen() {
 
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: '#020817' },
-  center: { flexGrow: 1, alignItems: 'center', justifyItems: 'center', padding: 24, paddingTop: 40, paddingBottom: 40 },
+  center: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: 24, paddingTop: 40, paddingBottom: 40 },
   card: { width: '100%', maxWidth: 440, padding: 28, backgroundColor: '#111827', borderRadius: 20 },
   brand: { color: '#A78BFA', fontWeight: '800', letterSpacing: 3, marginBottom: 24, textAlign: 'center' },
   title: { color: '#FFF', fontSize: 28, fontWeight: '700', marginBottom: 24, textAlign: 'center' },

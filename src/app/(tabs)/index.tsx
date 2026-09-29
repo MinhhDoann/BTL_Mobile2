@@ -88,7 +88,13 @@ export default function HomeScreen() {
   }, []);
 
   const playSong = async (song: Song) => {
-    await audioPlayer.playTrack({ songId: song.song_id, audioUrl: song.audio_url });
+    await audioPlayer.playTrack({
+      songId: song.song_id,
+      audioUrl: song.audio_url,
+      title: song.title,
+      coverUrl: song.cover_url,
+      artist: song.artist_name,
+    });
   };
 
   const isWeb = Platform.OS === 'web';

@@ -1,148 +1,140 @@
-import { audioPlayer, PlayerState } from '@/src/lib/audio-player';
-import { getCoverUrl } from '@/src/lib/cover-image';
-import { MaterialIcons } from '@expo/vector-icons';
+import React from 'react';
+import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useAudioPlayer } from '@/src/hooks/use-audio-player';
+import { audioPlayer } from '@/src/lib/audio-player';
+import { getCoverUrl } from '@/src/lib/cover-image';
 
 export function MiniPlayer() {
   const router = useRouter();
-  const [playerState, setPlayerState] = useState<PlayerState>(audioPlayer.getState());
+  const playerState = useAudioPlayer();
 
-  useEffect(() => {
-    const unsubscribe = audioPlayer.subscribe((state) => {
-      setPlayerState(state);
-    });
-    return unsubscribe;
-  }, []);
-
-  if (!playerState.songId) {
-    return null;
-  }
-
-  const { songId, isPlaying, positionMs, durationMs, title, artistName, coverUrl } = playerState;
-  const progressPercent = durationMs > 0 ? Math.min(100, Math.max(0, (positionMs / durationMs) * 100)) : 0;
+  if (!playerState.songId) return null;
 
   const handleTogglePlay = async () => {
     await audioPlayer.togglePlay();
   };
 
-  const handleStop = async () => {
+  const handleClose = async () => {
     await audioPlayer.stopCurrent();
   };
 
-  const handleOpenDetail = () => {
-    router.navigate({ pathname: '/song-detail', params: { songId: String(songId) } });
+  const handlePress = () => {
+    router.push({ pathname: '/song-detail', params: { songId: String(playerState.songId) } });
   };
 
-  return (
-    <View style={styles.container}>
-      <TouchableOpacity
-        style={styles.innerTouch}
-        activeOpacity={0.9}
-        onPress={handleOpenDetail}
-      >
-        <Image
-          source={{ uri: getCoverUrl(coverUrl) }}
-          style={styles.coverImage}
-          resizeMode="cover"
-        />
+  const formatTime = (ms: number) => {
+    if (!Number.isFinite(ms) || ms <= 0) return '0:00';
+    const totalSeconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${String(seconds).padStart(2, '0')}`;
+  };
 
-        <View style={styles.infoWrap}>
-          <Text style={styles.songTitle} numberOfLines={1}>
-            {title || `Bài hát #${songId}`}
+  const progressPercent = playerState.durationMs
+    ? (playerState.positionMs / playerState.durationMs) * 100
+    : 0;
+
+  return (
+    <TouchableOpacity style={styles.container} activeOpacity={0.9} onPress={handlePress}>
+      <View style={styles.progressContainer}>
+        <View style={[styles.progressBar, { width: `${progressPercent}%` }]} />
+      </View>
+      <View style={styles.content}>
+        <Image
+          source={{ uri: getCoverUrl(playerState.coverUrl || '') }}
+          style={styles.cover}
+        />
+        <View style={styles.info}>
+          <Text style={styles.title} numberOfLines={1}>
+            {playerState.title || 'Unknown Title'}
           </Text>
-          <Text style={styles.artistName} numberOfLines={1}>
-            {artistName || 'Đang phát'}
+          <Text style={styles.artist} numberOfLines={1}>
+            {playerState.artist || 'Unknown Artist'}
           </Text>
         </View>
-
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={handleTogglePlay}
-          activeOpacity={0.7}
-        >
-          <MaterialIcons
-            name={isPlaying ? 'pause' : 'play-arrow'}
-            size={28}
-            color="#38BDF8"
-          />
+        <TouchableOpacity style={styles.playButton} onPress={handleTogglePlay}>
+          <Text style={styles.playIcon}>{playerState.isPlaying ? '⏸' : '▶'}</Text>
         </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={handleStop}
-          activeOpacity={0.7}
-        >
-          <MaterialIcons name="close" size={20} color="#94A3B8" />
+        <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
+          <Text style={styles.closeIcon}>✕</Text>
         </TouchableOpacity>
-      </TouchableOpacity>
-
-      {/* Progress Bar Line */}
-      <View style={styles.progressTrack}>
-        <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    position: 'absolute',
+    bottom: 72, // Adjust based on your tab bar / footer height
+    left: 8,
+    right: 8,
     backgroundColor: '#1E293B',
     borderRadius: 12,
-    marginHorizontal: 12,
-    marginBottom: 6,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: '#334155',
+    elevation: 4,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowRadius: 4,
   },
-  innerTouch: {
+  progressContainer: {
+    height: 3,
+    backgroundColor: '#334155',
+    width: '100%',
+  },
+  progressBar: {
+    height: '100%',
+    backgroundColor: '#8B5CF6',
+  },
+  content: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 8,
   },
-  coverImage: {
+  cover: {
     width: 44,
     height: 44,
-    borderRadius: 8,
+    borderRadius: 6,
     backgroundColor: '#0F172A',
   },
-  infoWrap: {
+  info: {
     flex: 1,
     marginLeft: 10,
-    marginRight: 6,
+    justifyContent: 'center',
   },
-  songTitle: {
-    color: '#F8FAFC',
+  title: {
+    color: '#FFFFFF',
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '600',
   },
-  artistName: {
+  artist: {
     color: '#94A3B8',
     fontSize: 12,
     marginTop: 2,
   },
-  actionButton: {
-    width: 36,
-    height: 36,
+  playButton: {
+    width: 44,
+    height: 44,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    marginLeft: 4,
   },
-  progressTrack: {
-    height: 3,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    width: '100%',
+  playIcon: {
+    color: '#E2E8F0',
+    fontSize: 20,
   },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#38BDF8',
+  closeButton: {
+    width: 36,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 4,
+  },
+  closeIcon: {
+    color: '#94A3B8',
+    fontSize: 18,
   },
 });

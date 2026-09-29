@@ -33,46 +33,37 @@ export function SongForm({
 }: SongFormProps) {
   const pickCoverFromDevice = async (mode: 'gallery' | 'camera') => {
     try {
-      const result = mode === 'camera'
-        ? await ImagePicker.launchCameraAsync({
-            allowsEditing: true,
-            quality: 0.9,
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
-          })
-        : await ImagePicker.launchImageLibraryAsync({
-            allowsEditing: true,
-            quality: 0.9,
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
-          });
-
-      if (result.canceled || !result.assets?.length) {
+      if (mode === 'camera') {
+        Alert.alert('Tính năng chụp ảnh', 'Vui lòng điền link ảnh thủ công hoặc chọn từ thư viện (Web không hỗ trợ chụp ảnh trực tiếp qua DocumentPicker).');
         return;
       }
-
-      const pickedUri = result.assets[0].uri;
-      onChange('cover_url', pickedUri);
-      Alert.alert('Thành công', 'Đã chọn ảnh từ thiết bị.');
+      
+      const { pickAndUploadImage } = require('@/src/lib/upload');
+      const url = await pickAndUploadImage();
+      
+      if (url) {
+        onChange('cover_url', url);
+        Alert.alert('Thành công', 'Đã tải ảnh lên Cloudinary.');
+      }
     } catch (error) {
-      Alert.alert('Lỗi', 'Không thể chọn ảnh từ thiết bị.');
+      console.error(error);
+      Alert.alert('Lỗi', 'Không thể chọn hoặc tải ảnh lên thiết bị.');
     }
   };
 
   const pickAudioFromDevice = async () => {
     try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: ['audio/mpeg', 'audio/mp3', 'audio/*', 'application/octet-stream'],
-        copyToCacheDirectory: true,
-      });
-
-      if (result.canceled || !result.assets?.length) {
-        return;
+      // KHÔNG DÙNG Alert.alert ở đây trên Web vì nó sẽ block hành động chọn file của trình duyệt.
+      const { pickAndUploadAudio } = require('@/src/lib/upload');
+      const url = await pickAndUploadAudio();
+      
+      if (url) {
+        onChange('audio_url', url);
+        Alert.alert('Thành công', 'Đã upload nhạc lên Cloudinary thành công!');
       }
-
-      const pickedUri = result.assets[0].uri;
-      onChange('audio_url', pickedUri);
-      Alert.alert('Thành công', 'Đã chọn file nhạc từ thiết bị.');
     } catch (error) {
-      Alert.alert('Lỗi', 'Không thể chọn file nhạc từ thiết bị.');
+      console.error(error);
+      Alert.alert('Lỗi', 'Không thể upload. Hãy kiểm tra lại cấu hình Cloudinary.');
     }
   };
 
