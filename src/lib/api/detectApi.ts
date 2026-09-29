@@ -45,8 +45,10 @@ export async function detectApiBase(forceRefresh = false): Promise<string> {
   if (cachedBase && !forceRefresh) return cachedBase;
 
   const candidates: string[] = [];
+  // Prioritize localhost:3000 first so code runs instantly on pull
+  candidates.push('http://localhost:3000');
+
   if (Platform.OS === 'web') {
-    candidates.push('http://localhost:3000');
     if (typeof window !== 'undefined' && window?.location?.hostname) {
       const host = window.location.hostname;
       if (host && host !== 'localhost' && host !== '127.0.0.1') {
@@ -62,24 +64,22 @@ export async function detectApiBase(forceRefresh = false): Promise<string> {
     }
     candidates.push('http://10.0.2.2:3000');
     candidates.push('http://10.0.3.2:3000');
-    candidates.push('http://localhost:3000');
   }
 
   for (const c of candidates) {
     try {
-      console.log('[detectApi] probing', c);
-      const res = await fetchWithTimeout(`${c}/api/home-data`, probeTimeout);
-      console.log('[detectApi] probe status', c, res.status);
+      const res = await fetchWithTimeout(`${c}/health`, probeTimeout);
       if (res.ok) {
         cachedBase = c;
         return c;
       }
-    } catch (e: any) {
-      console.log('[detectApi] probe fail', c, e?.message ?? e);
+    } catch {
+      // Continue to next candidate
     }
   }
 
-  const fallback = Platform.OS === 'web' ? 'http://localhost:3000' : `http://${FALLBACK_LAN_IP}:3000`;
+  const fallback = 'http://localhost:3000';
+  cachedBase = fallback;
   return fallback;
 }
 

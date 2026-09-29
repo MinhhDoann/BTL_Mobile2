@@ -58,8 +58,18 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
     setAuthToken(null);
     listeners.forEach((listener) => listener());
   }
-  let payload;
-  try { payload = text ? JSON.parse(text) : null; } catch { throw new Error('Máy chủ trả về dữ liệu không hợp lệ.'); }
+  let payload: any = null;
+  if (text) {
+    try {
+      payload = JSON.parse(text);
+    } catch {
+      if (response.ok) {
+        payload = { message: text };
+      } else {
+        throw new Error('Máy chủ trả về dữ liệu không hợp lệ.');
+      }
+    }
+  }
   if (!response.ok) throw new Error(payload?.message || 'Yêu cầu thất bại.');
   return payload as T;
 }

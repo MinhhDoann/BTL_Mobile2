@@ -45,10 +45,15 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return result.user;
   }
   async function logout() {
-    await apiRequest('/api/auth/logout', { method: 'POST' });
-    revision.current++;
-    setAuthToken(null);
-    setUser(null);
+    try {
+      await apiRequest('/api/auth/logout', { method: 'POST' });
+    } catch {
+      // Ignore network errors during logout
+    } finally {
+      revision.current++;
+      setAuthToken(null);
+      setUser(null);
+    }
   }
   async function register(data: any) {
     const { registerUser } = await import('@/src/lib/api/auth-api');
@@ -74,6 +79,8 @@ export function useAuth(): AuthContextValue {
       loading: false,
       login: async () => ({ user_id: 0, username: '', email: '', role: 'user' }),
       logout: async () => {},
+      register: async () => ({ user_id: 0, username: '', email: '', role: 'user' }),
+      upgrade: async () => ({ user_id: 0, username: '', email: '', role: 'user' }),
     };
   }
   return context;

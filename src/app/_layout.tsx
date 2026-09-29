@@ -1,11 +1,10 @@
+import { MiniPlayer } from '@/src/components/ui/mini-player';
 import { AuthProvider } from '@/src/contexts/auth';
 import { DarkTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { AuthProvider } from '@/src/contexts/auth';
-import { MiniPlayer } from '@/src/components/ui/mini-player';
 
 
 export const unstable_settings = {

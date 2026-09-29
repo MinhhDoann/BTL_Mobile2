@@ -112,11 +112,21 @@ export function createAuth(db: DbQueryable, { now = Date.now }: AuthOptions = {}
     }
 
     try {
-      const [rows] = await db.query(
-        'SELECT user_id, username, email, role, password_hash, artist_request_status FROM users WHERE email = ? LIMIT 1',
-        [email.trim()]
-      );
-      const user = rows?.[0];
+      let user: any;
+      try {
+        const [rows]: [any[], any] = await db.query(
+          'SELECT user_id, username, email, role, password_hash, artist_request_status FROM users WHERE email = ? LIMIT 1',
+          [email.trim()]
+        );
+        user = rows?.[0];
+      } catch {
+        const [rows]: [any[], any] = await db.query(
+          'SELECT user_id, username, email, role, password_hash FROM users WHERE email = ? LIMIT 1',
+          [email.trim()]
+        );
+        user = rows?.[0];
+      }
+
       const valid = verifyPassword(password, user?.password_hash);
       if (!user || !valid) {
         return res.status(401).json({ message: 'Email hoặc mật khẩu không đúng.' });
@@ -125,7 +135,8 @@ export function createAuth(db: DbQueryable, { now = Date.now }: AuthOptions = {}
       const token = randomBytes(32).toString('hex');
       sessions.set(tokenKey(token), { userId: user.user_id, expires: now() + SESSION_TTL });
       res.json({ token, user: publicUser(user) });
-    } catch {
+    } catch (err: any) {
+      console.error('Lỗi đăng nhập:', err);
       res.status(503).json({ message: 'Không thể đăng nhập lúc này.' });
     }
   });
@@ -135,54 +146,63 @@ export function createAuth(db: DbQueryable, { now = Date.now }: AuthOptions = {}
     if (!username || !email || !password) {
       return res.status(400).json({ message: 'Vui lòng nhập đầy đủ thông tin.' });
     }
-    
+
     try {
       const [existing]: [any[], any] = await db.query('SELECT user_id FROM users WHERE email = ?', [email.trim()]);
       if (existing && existing.length > 0) {
         return res.status(400).json({ message: 'Email đã được sử dụng.' });
       }
-      
+
       const isRequestingArtist = role === 'artist';
       const insertRole = 'user'; // All new accounts start as user
       const requestStatus = isRequestingArtist ? 'pending' : 'none';
       let result: any;
+
       try {
         const [insertRes] = await db.query(
           'INSERT INTO users (username, email, password_hash, role, avatar_url, artist_request_status) VALUES (?, ?, ?, ?, ?, ?)',
           [username.trim(), email.trim(), password, insertRole, avatar_url || null, requestStatus]
         );
         result = insertRes;
-      } catch (e: any) {
-        if (e.message && e.message.includes('avatar_url')) {
+      } catch (e1: any) {
+        try {
           const [insertRes] = await db.query(
-            'INSERT INTO users (username, email, password_hash, role, artist_request_status) VALUES (?, ?, ?, ?, ?)',
-            [username.trim(), email.trim(), password, insertRole, requestStatus]
+            'INSERT INTO users (username, email, password_hash, role, avatar_url) VALUES (?, ?, ?, ?, ?)',
+            [username.trim(), email.trim(), password, insertRole, avatar_url || null]
           );
           result = insertRes;
-        } else {
-          throw e;
+        } catch (e2: any) {
+          const [insertRes] = await db.query(
+            'INSERT INTO users (username, email, password_hash, role) VALUES (?, ?, ?, ?)',
+            [username.trim(), email.trim(), password, insertRole]
+          );
+          result = insertRes;
         }
       }
-      
+
       const userId = result.insertId;
-      
+
       if (isRequestingArtist) {
         const { bio, address } = req.body ?? {};
         const fullBio = (address ? `Địa chỉ: ${address}\n\n` : '') + (bio || 'Chưa có tiểu sử.');
         const name = username.trim();
         const avatar = avatar_url || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400';
-        await db.query(
-          'INSERT INTO artists (name, bio, avatar_url, user_id) VALUES (?, ?, ?, ?)',
-          [name, fullBio, avatar, userId]
-        );
+        try {
+          await db.query(
+            'INSERT INTO artists (name, bio, avatar_url, user_id) VALUES (?, ?, ?, ?)',
+            [name, fullBio, avatar, userId]
+          );
+        } catch (e) {
+          console.warn('Không thể thêm bản ghi artist:', e);
+        }
       }
-      
+
       const user = { user_id: userId, username: username.trim(), email: email.trim(), role: insertRole, artist_request_status: requestStatus };
       const token = randomBytes(32).toString('hex');
       sessions.set(tokenKey(token), { userId: user.user_id, expires: now() + SESSION_TTL });
       res.json({ token, user: publicUser(user as any) });
     } catch (err: any) {
-      console.error(err);
+      console.error('Lỗi đăng ký:', err);
       res.status(503).json({ message: 'Không thể đăng ký lúc này.' });
     }
   });
@@ -191,11 +211,13 @@ export function createAuth(db: DbQueryable, { now = Date.now }: AuthOptions = {}
     res.json({ user: req.user });
   });
 
-  router.post('/logout', authenticate as any, (req: AuthRequest, res: Response) => {
-    if (req.sessionKey) {
-      sessions.delete(req.sessionKey);
+  router.post('/logout', (req: Request, res: Response) => {
+    const authHeader = req.headers.authorization;
+    if (authHeader) {
+      const token = authHeader.replace(/^Bearer\s+/i, '');
+      sessions.delete(tokenKey(token));
     }
-    res.sendStatus(204);
+    res.json({ message: 'Đăng xuất thành công.' });
   });
 
   function requireAdmin(req: AuthRequest, res: Response, next: NextFunction) {
