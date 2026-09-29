@@ -89,7 +89,7 @@ class AudioPlayerService {
 
     this.loading = (async () => {
       let safeUrl = track.audioUrl || 'https://interactive-examples.mdn.mozilla.net/media/cc0-audio/t-rex-roar.mp3';
-      
+
       // Basic validation for URL
       if (!safeUrl.startsWith('http://') && !safeUrl.startsWith('https://') && !safeUrl.startsWith('file://')) {
         console.warn('Invalid audio URL format:', safeUrl);
@@ -129,7 +129,6 @@ class AudioPlayerService {
               durationMs: status.durationMillis ?? 0,
               isPlaying: status.isPlaying,
               title: track.title ?? this.state.title,
-              artistName: track.artistName ?? this.state.artistName,
               coverUrl: track.coverUrl ?? this.state.coverUrl,
             });
           }
