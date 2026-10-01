@@ -6,6 +6,8 @@ export interface ArtistProfile {
   name: string;
   bio: string | null;
   avatar_url: string | null;
+    banner_views?: number;
+    banner_clicks?: number;
   user_id?: number;
   created_at?: string;
 }
@@ -42,6 +44,9 @@ export interface ArtistRevenueData {
   currency: string;
   total_songs: number;
   total_plays: number;
+  tong_tien_qc?: number;
+  tien_artist_nhan?: number;
+  thue_tncn?: number;
   total_revenue: number;
   withdrawable_balance: number;
   song_breakdown: SongBreakdown[];

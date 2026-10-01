@@ -5,16 +5,14 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Dimensions,
-  Image,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Image,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+    Linking
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -115,6 +113,35 @@ export default function SongDetailScreen() {
 
     fetchDetail();
   }, [songId]);
+
+  useEffect(() => {
+    if (detail?.song?.artist_id) {
+      const recordAdView = async () => {
+        try {
+          const base = await detectApiBase();
+          await fetch(`${base}/api/artist/${detail.song.artist_id}/ad-interaction`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'view' }),
+          });
+        } catch (err) {}
+      };
+      recordAdView();
+    }
+  }, [detail?.song?.artist_id]);
+
+  const handleAdClick = async () => {
+    if (!detail?.song?.artist_id) return;
+    try {
+      const base = await detectApiBase();
+      await fetch(`${base}/api/artist/${detail.song.artist_id}/ad-interaction`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'click' }),
+      });
+      Linking.openURL('https://www.facebook.com');
+    } catch (err) {}
+  };
 
   useEffect(() => {
     const unsubscribe = audioPlayer.subscribe((state) => {
@@ -413,10 +440,25 @@ export default function SongDetailScreen() {
               </TouchableOpacity>
             </View>
 
-            {userPlaylists.length === 0 ? (
-              <View style={{ paddingVertical: 30, alignItems: 'center' }}>
-                <Text style={{ color: '#94A3B8', fontSize: 14 }}>Chưa có danh sách phát nào.</Text>
-                <Text style={{ color: '#64748B', fontSize: 12, marginTop: 4 }}>Vào Thư viện để tạo danh sách phát mới.</Text>
+          {/* Qu?ng c�o Banner */}
+          <TouchableOpacity style={{ marginTop: 16, borderRadius: 12, overflow: 'hidden' }} onPress={handleAdClick}>
+            <Image source={{ uri: 'https://dummyimage.com/600x100/111827/a78bfa.png&text=Sponsor+Ad' }} style={{ width: '100%', height: 60 }} resizeMode='cover' />
+          </TouchableOpacity>
+
+          <View style={styles.infoCard}>
+            <Text style={styles.label}>Tác giả</Text>
+            <View style={styles.authorRow}>
+              <Image
+                source={{
+                  uri:
+                    song.artist_avatar ||
+                    'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80',
+                }}
+                style={styles.avatar}
+              />
+              <View style={styles.authorMeta}>
+                <Text style={styles.authorName}>{song.artist_name}</Text>
+                <Text style={styles.authorSub}>Nghệ sĩ</Text>
               </View>
             ) : (
               <ScrollView style={{ maxHeight: 300, marginTop: 8 }}>
