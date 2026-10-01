@@ -12,7 +12,8 @@ import {
     StyleSheet,
     Text,
     TouchableOpacity,
-    View
+    View,
+    Linking
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -74,6 +75,35 @@ export default function SongDetailScreen() {
 
     fetchDetail();
   }, [songId]);
+
+  useEffect(() => {
+    if (detail?.song?.artist_id) {
+      const recordAdView = async () => {
+        try {
+          const base = await detectApiBase();
+          await fetch(`${base}/api/artist/${detail.song.artist_id}/ad-interaction`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'view' }),
+          });
+        } catch (err) {}
+      };
+      recordAdView();
+    }
+  }, [detail?.song?.artist_id]);
+
+  const handleAdClick = async () => {
+    if (!detail?.song?.artist_id) return;
+    try {
+      const base = await detectApiBase();
+      await fetch(`${base}/api/artist/${detail.song.artist_id}/ad-interaction`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'click' }),
+      });
+      Linking.openURL('https://www.facebook.com');
+    } catch (err) {}
+  };
 
   useEffect(() => {
     const unsubscribe = audioPlayer.subscribe((state) => {
@@ -239,6 +269,11 @@ export default function SongDetailScreen() {
               </TouchableOpacity>
             </View>
           </View>
+
+          {/* Qu?ng c�o Banner */}
+          <TouchableOpacity style={{ marginTop: 16, borderRadius: 12, overflow: 'hidden' }} onPress={handleAdClick}>
+            <Image source={{ uri: 'https://dummyimage.com/600x100/111827/a78bfa.png&text=Sponsor+Ad' }} style={{ width: '100%', height: 60 }} resizeMode='cover' />
+          </TouchableOpacity>
 
           <View style={styles.infoCard}>
             <Text style={styles.label}>Tác giả</Text>
