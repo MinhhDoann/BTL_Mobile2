@@ -18,7 +18,8 @@ interface FooterProps {
 }
 
 export function FooterButton({ title, onPress, variant = 'secondary', disabled, icon, active }: FooterAction) {
-  const inactiveIconColor = '#FFFFFF';
+  const activeIconColor = '#FFFFFF';
+  const inactiveIconColor = '#94A3B8';
   const inactiveLabelColor = '#94A3B8';
 
   return (
@@ -28,9 +29,9 @@ export function FooterButton({ title, onPress, variant = 'secondary', disabled, 
       onPress={onPress}
       disabled={disabled}
     >
-      <View style={[styles.iconBubble, active && styles.iconBubbleActive]}>
+      <View style={styles.iconWrapper}>
         {icon ? (
-          <IconSymbol name={icon as any} size={20} color={active ? '#0B1120' : inactiveIconColor} />
+          <IconSymbol name={icon as any} size={22} color={active ? activeIconColor : inactiveIconColor} />
         ) : null}
       </View>
       <Text style={[styles.tabLabel, active ? styles.tabLabelActive : { color: inactiveLabelColor }]} numberOfLines={1}>
@@ -44,7 +45,7 @@ export function Footer({ actions, style }: FooterProps) {
   const insets = useSafeAreaInsets();
 
   return (
-    <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }, style]}>
+    <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 6) }, style]}>
       {actions.map((action, index) => (
         <View key={index} style={styles.tabItem}>
           <FooterButton {...action} />
@@ -59,7 +60,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: 8,
-    paddingTop: 8,
+    paddingTop: 6,
     backgroundColor: '#0B1120',
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: '#1E293B',
@@ -72,28 +73,21 @@ const styles = StyleSheet.create({
   tabButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
+    paddingVertical: 4,
   },
   tabLabel: {
     fontSize: 11,
-    marginTop: 4,
+    marginTop: 2,
     color: '#94A3B8',
   },
   tabLabelActive: {
     color: '#FFFFFF',
     fontWeight: '600',
   },
-  iconBubble: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+  iconWrapper: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'transparent',
-    marginBottom: 2,
-  },
-  iconBubbleActive: {
-    backgroundColor: '#FFFFFF',
+    height: 24,
   },
   btn_primary: { backgroundColor: '#2563EB' },
   btn_secondary: { backgroundColor: '#1E293B' },

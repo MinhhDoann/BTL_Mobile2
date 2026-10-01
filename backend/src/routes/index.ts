@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { db } from '../config/db';
 import { createAuth } from '../services/auth.service';
 import { homeRouter } from './home.routes';
+import { playlistRouter } from './playlist.routes';
 import { songsRouter } from './songs.routes';
 import { adminRouter } from './admin.routes';
 import { createAdminDataRouter } from './admin-data.routes';
@@ -25,6 +26,7 @@ export function createApiRouter(customDb = db, authService = createAuth(customDb
 
   // Home feeds: /api/home-data
   router.use('/api', homeRouter);
+  router.use('/api', playlistRouter);
 
   // Song details: /api/songs/*
   router.use('/api/songs', songsRouter);
