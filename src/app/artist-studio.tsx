@@ -487,17 +487,17 @@ export default function ArtistStudioScreen() {
             {/* Thống kê doanh thu */}
             <View style={styles.statsGrid}>
               <View style={[styles.statCard, { borderLeftColor: '#8B5CF6' }]}>
-                <Text style={styles.statLabel}>Tổng lượt view/nghe</Text>
-                <Text style={styles.statValue}>{revenueData?.total_plays?.toLocaleString() || '0'}</Text>
-                <Text style={styles.statSub}>Đơn giá: 100 VNĐ / view</Text>
+                <Text style={styles.statLabel}>Thống kê Quảng cáo</Text>
+                <Text style={styles.statValue}>{(revenueData?.artist?.banner_views || 0).toLocaleString()} views</Text>
+                <Text style={styles.statSub}>{(revenueData?.artist?.banner_clicks || 0).toLocaleString()} clicks</Text>
               </View>
 
               <View style={[styles.statCard, { borderLeftColor: '#10B981' }]}>
-                <Text style={styles.statLabel}>Tổng doanh thu tích lũy</Text>
+                <Text style={styles.statLabel}>Thực nhận (Sau thuế 10%)</Text>
                 <Text style={[styles.statValue, { color: '#10B981' }]}>
                   {(revenueData?.total_revenue || 0).toLocaleString()} VNĐ
                 </Text>
-                <Text style={styles.statSub}>Đã bao gồm thuế nền tảng</Text>
+                <Text style={styles.statSub}>Tổng tiền QC: {(revenueData?.tong_tien_qc || 0).toLocaleString()} VNĐ</Text>
               </View>
             </View>
 
