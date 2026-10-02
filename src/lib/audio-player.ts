@@ -1,4 +1,4 @@
-import { Audio, InterruptionModeIOS, InterruptionModeAndroid } from 'expo-av';
+import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from 'expo-av';
 import { recordSongPlay } from './api/artist-api';
 
 export type AudioTrack = {
@@ -34,7 +34,6 @@ class AudioPlayerService {
     positionMs: 0,
     durationMs: 0,
     title: undefined,
-    artistName: undefined,
     coverUrl: undefined,
   };
   private loading: Promise<void> | null = null;

@@ -1,3 +1,4 @@
+import { FALLBACK_HOME_DATA } from '@/src/constants/fallback-data';
 import { AppHeader } from '@/src/components/ui/app-header';
 import { Footer } from '@/src/components/ui/footer';
 import { MiniPlayer } from '@/src/components/ui/mini-player';
@@ -41,6 +42,7 @@ export default function HomeScreen() {
   const [genresData, setGenresData] = useState<GenreWithSongs[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [playingSongId, setPlayingSongId] = useState<number | null>(null);
+  const [isOfflineMode, setIsOfflineMode] = useState<boolean>(false);
 
   const loadHomeData = useCallback(async (forceRefresh = false) => {
     try {
@@ -49,7 +51,8 @@ export default function HomeScreen() {
       await fetchDataFromMySQL(base);
     } catch (e) {
       console.error('[Home] detectApiBase error', e);
-      setGenresData([]);
+      setGenresData(FALLBACK_HOME_DATA);
+      setIsOfflineMode(true);
       setLoading(false);
     }
   }, []);
@@ -68,10 +71,17 @@ export default function HomeScreen() {
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
       console.log('[Home] fetched items', Array.isArray(data) ? data.length : typeof data);
-      setGenresData(data || []);
+      if (Array.isArray(data) && data.length > 0) {
+        setGenresData(data);
+        setIsOfflineMode(false);
+      } else {
+        setGenresData(FALLBACK_HOME_DATA);
+        setIsOfflineMode(true);
+      }
     } catch (error) {
-      console.error('Lỗi lấy dữ liệu từ MySQL:', error);
-      setGenresData([]);
+      console.error('Lỗi lấy dữ liệu từ MySQL, dùng dữ liệu dự phòng:', error);
+      setGenresData(FALLBACK_HOME_DATA);
+      setIsOfflineMode(true);
     } finally {
       setLoading(false);
     }
@@ -123,7 +133,7 @@ export default function HomeScreen() {
       songId: song.song_id,
       audioUrl: song.audio_url,
       title: song.title,
-      artistName: song.artist_name,
+      artist: song.artist_name,
       coverUrl: song.cover_url,
     });
     router.navigate({ pathname: '/song-detail', params: { songId: String(song.song_id) } });
@@ -178,35 +188,30 @@ export default function HomeScreen() {
             <ActivityIndicator size="large" color="#FFFFFF" style={{ marginTop: 40 }} />
           ) : (
             <ScrollView style={styles.scrollArea} contentContainerStyle={{ paddingBottom: 20 }}>
-              {!loading && genresData.length === 0 && (
-                <View style={{ padding: 16 }}>
-                  <Text style={{ color: '#fff', marginBottom: 8, fontSize: 16, fontWeight: 'bold' }}>Không có dữ liệu hiển thị trên thiết bị này.</Text>
-                  <Text style={{ color: '#94A3B8', fontSize: 13, marginBottom: 4 }}>
-                    Thử các bước:
+              {isOfflineMode && (
+                <TouchableOpacity
+                  style={{
+                    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                    borderColor: 'rgba(245, 158, 11, 0.4)',
+                    borderWidth: 1,
+                    borderRadius: 12,
+                    paddingVertical: 10,
+                    paddingHorizontal: 14,
+                    marginBottom: 16,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}
+                  onPress={() => loadHomeData(true)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={{ color: '#FBBF24', fontSize: 13, fontWeight: '600', flex: 1 }}>
+                    ⚠️ Chưa kết nối Server Backend (Đang hiện dữ liệu xem thử)
                   </Text>
-                  <Text style={{ color: '#94A3B8', fontSize: 13 }}>• Kiểm tra server backend có đang chạy và lắng nghe trên host đúng (0.0.0.0 hoặc IP máy).
+                  <Text style={{ color: '#38BDF8', fontSize: 13, fontWeight: '700', marginLeft: 8 }}>
+                    🔄 Thử lại
                   </Text>
-                  <Text style={{ color: '#94A3B8', fontSize: 13 }}>• Với Android emulator dùng 10.0.2.2:{'3000'} hoặc Genymotion dùng 10.0.3.2.
-                  </Text>
-                  <Text style={{ color: '#94A3B8', fontSize: 13 }}>• Với thiết bị thật, dùng IP máy dev (ví dụ 192.168.x.y:3000) và đảm bảo cùng mạng Wi‑Fi.
-                  </Text>
-                  <Text style={{ color: '#94A3B8', fontSize: 13, marginBottom: 12 }}>• Mở DevTools/console để xem các log fetch (tìm '[Home] fetching').
-                  </Text>
-                  <TouchableOpacity
-                    style={{
-                      backgroundColor: '#1E293B',
-                      borderColor: '#334155',
-                      borderWidth: 1,
-                      paddingVertical: 10,
-                      paddingHorizontal: 16,
-                      borderRadius: 8,
-                      alignSelf: 'flex-start',
-                    }}
-                    onPress={() => loadHomeData(true)}
-                  >
-                    <Text style={{ color: '#38BDF8', fontWeight: '600' }}>🔄 Thử lại kết nối</Text>
-                  </TouchableOpacity>
-                </View>
+                </TouchableOpacity>
               )}
               {tab === 'all' && (
                 <View>

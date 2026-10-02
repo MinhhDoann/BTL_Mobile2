@@ -1,3 +1,4 @@
+import { FALLBACK_HOME_DATA } from '@/src/constants/fallback-data';
 import { AppHeader } from '@/src/components/ui/app-header';
 import { Footer } from '@/src/components/ui/footer';
 import { MiniPlayer } from '@/src/components/ui/mini-player';
@@ -52,11 +53,10 @@ export default function SearchScreen() {
       try {
         const base = await detectApiBase();
         const response = await fetch(`${base}/api/home-data`);
-        const data = await response.json();
+        let data = await response.json();
 
-        if (!Array.isArray(data)) {
-          if (isMounted) setSongs([]);
-          return;
+        if (!Array.isArray(data) || data.length === 0) {
+          data = FALLBACK_HOME_DATA;
         }
 
         // Deduplicate songs by song_id and collect genres for each song
@@ -98,8 +98,22 @@ export default function SearchScreen() {
           }
         }
       } catch (error) {
-        console.error('Lỗi lấy dữ liệu tìm kiếm:', error);
-        if (isMounted) setSongs([]);
+        console.error('Lỗi lấy dữ liệu tìm kiếm, dùng dự phòng:', error);
+        if (isMounted) {
+          const songMap = new Map<number, SongItem>();
+          FALLBACK_HOME_DATA.forEach((genre) => {
+            genre.songs.forEach((song) => {
+              songMap.set(song.song_id, {
+                id: song.song_id,
+                title: song.title,
+                artist: song.artist_name,
+                cover: getCoverUrl(song.cover_url),
+                genres: [genre.genre_name],
+              });
+            });
+          });
+          setSongs(Array.from(songMap.values()));
+        }
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -218,7 +232,7 @@ export default function SearchScreen() {
                       songId: song.id,
                       audioUrl: '',
                       title: song.title,
-                      artistName: song.artist,
+                      artist: song.artist,
                       coverUrl: song.cover,
                     });
                     router.navigate({ pathname: '/song-detail', params: { songId: String(song.id) } });
