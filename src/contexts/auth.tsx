@@ -21,7 +21,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
     try {
       const result = await apiRequest<{ user: AuthUser }>('/api/auth/me');
       if (current === revision.current) setUser(result.user);
-    } catch { if (current === revision.current) setUser(null); }
+    } catch (e) {
+      // Ignore network errors here to avoid unwarranted logouts when switching context.
+      // 401 Unauthorized errors are intercepted by apiRequest causing onSessionExpired to handle it.
+    }
   }, []);
   useEffect(() => {
     const unsubscribe = onSessionExpired(() => { revision.current++; setUser(null); });

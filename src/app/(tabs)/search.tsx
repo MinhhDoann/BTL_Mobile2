@@ -261,7 +261,7 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#0B1120' },
   container: { flex: 1 },
   content: { flex: 1, paddingHorizontal: 16 },
-  contentInner: { paddingBottom: 24 },
+  contentInner: { paddingBottom: 140 },
   searchWrap: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -17,6 +17,7 @@ export type PlayerState = {
   title?: string;
   coverUrl?: string | null;
   artist?: string;
+  didJustFinish: boolean;
 };
 
 type Listener = (state: PlayerState) => void;
@@ -35,6 +36,7 @@ class AudioPlayerService {
     durationMs: 0,
     title: undefined,
     coverUrl: undefined,
+    didJustFinish: false,
   };
   private loading: Promise<void> | null = null;
 
@@ -68,7 +70,7 @@ class AudioPlayerService {
     this.playbackVersion += 1;
     this.sound = null;
     this.activeSongId = null;
-    this.setState({ songId: null, isPlaying: false, positionMs: 0, durationMs: 0, title: undefined, coverUrl: undefined, artist: undefined });
+    this.setState({ songId: null, isPlaying: false, positionMs: 0, durationMs: 0, title: undefined, coverUrl: undefined, artist: undefined, didJustFinish: false });
 
     if (!soundToStop) return;
 
@@ -129,6 +131,7 @@ class AudioPlayerService {
               isPlaying: status.isPlaying,
               title: track.title ?? this.state.title,
               coverUrl: track.coverUrl ?? this.state.coverUrl,
+              didJustFinish: status.didJustFinish ?? false,
             });
           }
         );
@@ -150,6 +153,7 @@ class AudioPlayerService {
             title: track.title,
             coverUrl: track.coverUrl,
             artist: track.artist,
+            didJustFinish: false,
           });
         }
       } catch (error) {

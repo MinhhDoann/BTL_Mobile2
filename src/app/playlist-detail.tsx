@@ -194,7 +194,7 @@ export default function PlaylistDetailScreen() {
       songId: song.song_id,
       audioUrl: song.audio_url,
       title: song.title,
-      artistName: song.artist_name,
+      artist: song.artist_name,
       coverUrl: song.cover_url,
     });
     router.push({ pathname: '/song-detail', params: { songId: String(song.song_id) } });
@@ -397,7 +397,7 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#0B1120' },
   container: { flex: 1 },
   content: { flex: 1, paddingHorizontal: 16 },
-  contentInner: { paddingBottom: 24 },
+  contentInner: { paddingBottom: 140 },
   bannerContainer: {
     alignItems: 'center',
     paddingVertical: 20,

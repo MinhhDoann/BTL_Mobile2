@@ -1,15 +1,16 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, usePathname } from 'expo-router';
 import { useAudioPlayer } from '@/src/hooks/use-audio-player';
 import { audioPlayer } from '@/src/lib/audio-player';
 import { getCoverUrl } from '@/src/lib/cover-image';
 
 export function MiniPlayer() {
   const router = useRouter();
+  const pathname = usePathname();
   const playerState = useAudioPlayer();
 
-  if (!playerState.songId) return null;
+  if (!playerState.songId || pathname === '/song-detail') return null;
 
   const handleTogglePlay = async () => {
     await audioPlayer.togglePlay();

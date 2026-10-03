@@ -187,7 +187,7 @@ export default function HomeScreen() {
           {loading ? (
             <ActivityIndicator size="large" color="#FFFFFF" style={{ marginTop: 40 }} />
           ) : (
-            <ScrollView style={styles.scrollArea} contentContainerStyle={{ paddingBottom: 20 }}>
+            <ScrollView style={styles.scrollArea} contentContainerStyle={{ paddingBottom: 140 }}>
               {isOfflineMode && (
                 <TouchableOpacity
                   style={{

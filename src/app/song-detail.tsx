@@ -6,13 +6,16 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
+    Dimensions,
     Image,
+    Linking,
+    Modal,
+    Pressable,
     ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
     View,
-    Linking
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -53,6 +56,8 @@ export default function SongDetailScreen() {
   const [userPlaylists, setUserPlaylists] = useState<any[]>([]);
   const [addingToPlaylistId, setAddingToPlaylistId] = useState<number | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const [queue, setQueue] = useState<any[]>([]);
 
   const fetchUserPlaylists = async () => {
     try {
@@ -103,7 +108,15 @@ export default function SongDetailScreen() {
         const base = await detectApiBase();
         const response = await fetch(`${base}/api/songs/${songId}/detail`);
         const data = await response.json();
-        setDetail(data?.song || data || null);
+        const songData = data?.song || data || null;
+        setDetail(songData);
+
+        if (songData) {
+          const allRelated = [...(data?.relatedByArtist || []), ...(data?.relatedByGenre || [])];
+          const uniqueQueue = Array.from(new Map(allRelated.map(item => [item.song_id, item])).values())
+            .filter((item: any) => item.song_id !== songData.song_id);
+          setQueue(uniqueQueue);
+        }
       } catch (error) {
         console.error('Error fetch song detail:', error);
       } finally {
@@ -115,11 +128,12 @@ export default function SongDetailScreen() {
   }, [songId]);
 
   useEffect(() => {
-    if (detail?.song?.artist_id) {
+    const artistId = detail?.artist_id || (detail as any)?.song?.artist_id;
+    if (artistId) {
       const recordAdView = async () => {
         try {
           const base = await detectApiBase();
-          await fetch(`${base}/api/artist/${detail.song.artist_id}/ad-interaction`, {
+          await fetch(`${base}/api/artist/${artistId}/ad-interaction`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ type: 'view' }),
@@ -128,13 +142,14 @@ export default function SongDetailScreen() {
       };
       recordAdView();
     }
-  }, [detail?.song?.artist_id]);
+  }, [detail]);
 
   const handleAdClick = async () => {
-    if (!detail?.song?.artist_id) return;
+    const artistId = detail?.artist_id || (detail as any)?.song?.artist_id;
+    if (!artistId) return;
     try {
       const base = await detectApiBase();
-      await fetch(`${base}/api/artist/${detail.song.artist_id}/ad-interaction`, {
+      await fetch(`${base}/api/artist/${artistId}/ad-interaction`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type: 'click' }),
@@ -143,16 +158,86 @@ export default function SongDetailScreen() {
     } catch (err) {}
   };
 
+  const isShuffleRef = React.useRef(isShuffle);
+  const repeatModeRef = React.useRef(repeatMode);
+  const detailRef = React.useRef(detail);
+  const queueRef = React.useRef(queue);
+
+  useEffect(() => {
+    isShuffleRef.current = isShuffle;
+    repeatModeRef.current = repeatMode;
+    detailRef.current = detail;
+    queueRef.current = queue;
+  }, [isShuffle, repeatMode, detail, queue]);
+
+  const handleNext = async () => {
+    const currentQueue = queueRef.current;
+    if (currentQueue.length === 0) return;
+    
+    let nextSong;
+    if (isShuffleRef.current) {
+      const randomIndex = Math.floor(Math.random() * currentQueue.length);
+      nextSong = currentQueue[randomIndex];
+    } else {
+      nextSong = currentQueue[0];
+    }
+    
+    await audioPlayer.playTrack({
+      songId: nextSong.song_id,
+      audioUrl: nextSong.audio_url,
+      title: nextSong.title,
+      coverUrl: nextSong.cover_url,
+      artist: nextSong.artist_name,
+    });
+    router.replace({ pathname: '/song-detail', params: { songId: String(nextSong.song_id) } });
+  };
+
+  const handlePrev = async () => {
+    const currentQueue = queueRef.current;
+    if (currentQueue.length === 0) return;
+    
+    let prevSong;
+    if (isShuffleRef.current) {
+      const randomIndex = Math.floor(Math.random() * currentQueue.length);
+      prevSong = currentQueue[randomIndex];
+    } else {
+      prevSong = currentQueue[currentQueue.length - 1]; // last one conceptually as previous
+    }
+    
+    await audioPlayer.playTrack({
+      songId: prevSong.song_id,
+      audioUrl: prevSong.audio_url,
+      title: prevSong.title,
+      coverUrl: prevSong.cover_url,
+      artist: prevSong.artist_name,
+    });
+    router.replace({ pathname: '/song-detail', params: { songId: String(prevSong.song_id) } });
+  };
+
   useEffect(() => {
     const unsubscribe = audioPlayer.subscribe((state) => {
       setCurrentSongId(state.songId);
       setIsPlaying(state.isPlaying);
       setPositionMs(state.positionMs);
       setDurationMs(state.durationMs);
+
+      if (state.didJustFinish && state.songId === Number(songId)) {
+        if (repeatModeRef.current === 'one' && detailRef.current) {
+          audioPlayer.playTrack({
+            songId: detailRef.current.song_id,
+            audioUrl: detailRef.current.audio_url,
+            title: detailRef.current.title,
+            coverUrl: detailRef.current.cover_url,
+            artist: detailRef.current.artist_name,
+          });
+        } else if (repeatModeRef.current === 'all' || repeatModeRef.current === 'off') {
+          handleNext();
+        }
+      }
     });
 
     return unsubscribe;
-  }, []);
+  }, [songId]);
 
   const playSong = async (trackSong: SongDetailItem) => {
     await audioPlayer.playTrack({
@@ -173,10 +258,6 @@ export default function SongDetailScreen() {
     }
 
     await audioPlayer.togglePlay();
-  };
-
-  const handleSkip = async (amountMs: number) => {
-    await audioPlayer.skip(amountMs);
   };
 
   const [trackWidth, setTrackWidth] = useState(SCREEN_WIDTH - 48);
@@ -328,7 +409,7 @@ export default function SongDetailScreen() {
 
           <TouchableOpacity
             style={styles.controlButton}
-            onPress={() => handleSkip(-10000)}
+            onPress={handlePrev}
             activeOpacity={0.7}
           >
             <MaterialIcons name="skip-previous" size={38} color="#F8FAFC" />
@@ -349,7 +430,7 @@ export default function SongDetailScreen() {
 
           <TouchableOpacity
             style={styles.controlButton}
-            onPress={() => handleSkip(10000)}
+            onPress={handleNext}
             activeOpacity={0.7}
           >
             <MaterialIcons name="skip-next" size={38} color="#F8FAFC" />
@@ -430,29 +511,18 @@ export default function SongDetailScreen() {
               </TouchableOpacity>
             </View>
 
-          {/* Qu?ng c�o Banner */}
-          <TouchableOpacity style={{ marginTop: 16, borderRadius: 12, overflow: 'hidden' }} onPress={handleAdClick}>
-            <Image source={{ uri: 'https://dummyimage.com/600x100/111827/a78bfa.png&text=Sponsor+Ad' }} style={{ width: '100%', height: 60 }} resizeMode='cover' />
-          </TouchableOpacity>
+            {/* Banner Quảng Cáo */}
+            <TouchableOpacity style={{ marginTop: 8, marginBottom: 12, borderRadius: 12, overflow: 'hidden' }} onPress={handleAdClick}>
+              <Image source={{ uri: 'https://dummyimage.com/600x100/111827/a78bfa.png&text=Sponsor+Ad' }} style={{ width: '100%', height: 60 }} resizeMode="cover" />
+            </TouchableOpacity>
 
-          <View style={styles.infoCard}>
-            <Text style={styles.label}>Tác giả</Text>
-            <View style={styles.authorRow}>
-              <Image
-                source={{
-                  uri:
-                    song.artist_avatar ||
-                    'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80',
-                }}
-                style={styles.avatar}
-              />
-              <View style={styles.authorMeta}>
-                <Text style={styles.authorName}>{song.artist_name}</Text>
-                <Text style={styles.authorSub}>Nghệ sĩ</Text>
-              </View>
-            ) : (
-              <ScrollView style={{ maxHeight: 300, marginTop: 8 }}>
-                {userPlaylists.map((pl) => (
+            <ScrollView style={{ maxHeight: 300, marginTop: 8 }}>
+              {userPlaylists.length === 0 ? (
+                <Text style={{ color: '#94A3B8', textAlign: 'center', marginVertical: 16 }}>
+                  Chưa có danh sách phát nào
+                </Text>
+              ) : (
+                userPlaylists.map((pl) => (
                   <TouchableOpacity
                     key={pl.id}
                     style={{
@@ -471,11 +541,15 @@ export default function SongDetailScreen() {
                       <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 15 }}>{pl.title}</Text>
                       <Text style={{ color: '#94A3B8', fontSize: 12 }}>{pl.song_count || 0} bài hát</Text>
                     </View>
-                    <MaterialIcons name="add" size={24} color="#38BDF8" />
+                    {addingToPlaylistId === pl.id ? (
+                      <ActivityIndicator size="small" color="#38BDF8" />
+                    ) : (
+                      <MaterialIcons name="add" size={24} color="#38BDF8" />
+                    )}
                   </TouchableOpacity>
-                ))}
-              </ScrollView>
-            )}
+                ))
+              )}
+            </ScrollView>
           </View>
         </View>
       </Modal>

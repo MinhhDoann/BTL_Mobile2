@@ -1,6 +1,6 @@
 import { FooterAction } from '@/src/components/ui/footer';
-import { useRouter } from 'expo-router';
 import { useAuth } from '@/src/contexts/auth';
+import { useRouter } from 'expo-router';
 import { Alert, Linking, Platform } from 'react-native';
 
 export function useFooterActions(activeTab: string = 'home'): FooterAction[] {
@@ -34,14 +34,6 @@ export function useFooterActions(activeTab: string = 'home'): FooterAction[] {
       onPress: () => {
         console.log('Chuyển tới Thư viện');
         router.push('/library' as any);
-      },
-    },
-    {
-      title: 'Đăng ký',
-      icon: 'music.note',
-      active: activeTab === 'register',
-      onPress: () => {
-        // Không làm gì cả theo yêu cầu
       },
     },
     ...(user?.role === 'artist' || user?.role === 'admin' ? [{
