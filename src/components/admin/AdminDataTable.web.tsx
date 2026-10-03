@@ -17,6 +17,7 @@ export function AdminDataTable({ entity, dashboard, currentUserId, onChanged, on
   const [revision, setRevision] = useState(0);
   const [editing, setEditing] = useState<{ id: number | null } | null>(null);
   const [deleting, setDeleting] = useState<{ id: number; preview: DeletePreview } | null>(null);
+  const [invoice, setInvoice] = useState<any>(null);
   const [busy, setBusy] = useState(false);
   const operation = useRef(0);
   useEffect(() => () => { operation.current++; }, []);
@@ -59,6 +60,32 @@ export function AdminDataTable({ entity, dashboard, currentUserId, onChanged, on
       setRevision((value) => value + 1);
       await onChanged();
     } catch (err) { setError(err instanceof Error ? err.message : 'Không thể xóa dữ liệu.'); }
+    finally { setBusy(false); }
+  }
+
+  async function updatePayoutStatus(id: number, status: string) {
+    if (busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      const { saveAdminRecord } = await import('@/src/lib/api/admin-api');
+      const record = data?.items.find((r) => r[config.id] === id);
+      if (!record) throw new Error('Không tìm thấy bản ghi');
+      await saveAdminRecord(entity, id, { ...record, status });
+      setNotice(`Đã cập nhật trạng thái thành ${status}.`);
+      setRevision((value) => value + 1);
+      
+      // Nếu duyệt, hiển thị hóa đơn
+      if (status === 'approved') {
+        setInvoice({
+          ...record,
+          approved_at: new Date().toISOString(),
+          admin: 'System Admin'
+        });
+      }
+      
+      await onChanged();
+    } catch (err) { setError(err instanceof Error ? err.message : 'Không thể cập nhật trạng thái.'); }
     finally { setBusy(false); }
   }
   function display(record: AdminRecord, key: string) {
@@ -113,7 +140,28 @@ export function AdminDataTable({ entity, dashboard, currentUserId, onChanged, on
         <tbody>{data?.items.map((record) => {
           const id = Number(record[config.id]);
           const label = String(record.title ?? record.name ?? record.username ?? id);
-          return <tr key={id}>{config.columns.map((column) => <td key={column.key}><span title={display(record, column.key)}>{display(record, column.key)}</span></td>)}<td><div className="admin-row-actions"><button type="button" disabled={loading || busy} aria-label={`Sửa ${label}`} onClick={() => setEditing({ id })}>Sửa</button><button type="button" className="admin-danger" disabled={loading || busy || (entity === 'users' && id === currentUserId)} aria-label={`Xóa ${label}`} onClick={() => void beginDelete(id)}>Xóa</button></div></td></tr>;
+          return <tr key={id}>
+            {config.columns.map((column) => <td key={column.key}><span title={display(record, column.key)}>{display(record, column.key)}</span></td>)}
+            <td>
+              <div className="admin-row-actions">
+                {entity === 'payout_requests' ? (
+                  record.status === 'pending' ? (
+                    <>
+                      <button type="button" className="admin-primary" disabled={loading || busy} aria-label={`Duyệt ${label}`} onClick={() => void updatePayoutStatus(id, 'approved')}>Duyệt</button>
+                      <button type="button" className="admin-danger" disabled={loading || busy} aria-label={`Từ chối ${label}`} onClick={() => void updatePayoutStatus(id, 'rejected')}>Từ chối</button>
+                    </>
+                  ) : (
+                    <span>{record.status === 'approved' ? 'Đã duyệt' : 'Đã từ chối'}</span>
+                  )
+                ) : (
+                  <>
+                    <button type="button" disabled={loading || busy} aria-label={`Sửa ${label}`} onClick={() => setEditing({ id })}>Sửa</button>
+                    <button type="button" className="admin-danger" disabled={loading || busy || (entity === 'users' && id === currentUserId)} aria-label={`Xóa ${label}`} onClick={() => void beginDelete(id)}>Xóa</button>
+                  </>
+                )}
+              </div>
+            </td>
+          </tr>;
         })}{!loading && data?.items.length === 0 ? <tr><td colSpan={config.columns.length + 1}>Không có dữ liệu phù hợp.</td></tr> : null}</tbody>
       </table>
     </div>
@@ -124,6 +172,27 @@ export function AdminDataTable({ entity, dashboard, currentUserId, onChanged, on
       {deleting.preview.impacts.length ? <ul>{deleting.preview.impacts.map((impact) => <li key={impact.label}>{impact.label}: <strong>{impact.count}</strong></li>)}</ul> : <p>Không có bản ghi liên quan bị ảnh hưởng.</p>}
       {error ? <p role="alert" className="admin-error">{error}</p> : null}
       <div className="admin-actions"><button disabled={busy} onClick={() => { setDeleting(null); setError(''); }}>Hủy</button><button className="admin-danger" disabled={busy} onClick={() => void remove()}>{busy ? 'Đang xóa...' : 'Xác nhận xóa'}</button></div>
+    </AdminDialog> : null}
+    {invoice ? <AdminDialog title={`HÓA ĐƠN CHUYỂN KHOẢN`} busy={false} onClose={() => setInvoice(null)}>
+      <div style={{ padding: 20, background: '#fff', color: '#000', borderRadius: 8, fontFamily: 'monospace', lineHeight: 1.6, marginTop: 10 }}>
+        <h3 style={{ textAlign: 'center', margin: '0 0 16px 0', borderBottom: '1px dashed #ccc', paddingBottom: 16 }}>BIÊN LAI CHUYỂN TIỀN<br/>NGHỆ SĨ</h3>
+        <p><strong>Mã giao dịch:</strong> {invoice.request_id}</p>
+        <p><strong>Ngày duyệt:</strong> {new Date(invoice.approved_at).toLocaleString('vi-VN')}</p>
+        <p><strong>Nghệ sĩ:</strong> {invoice.artist_name}</p>
+        <hr style={{ border: 'none', borderTop: '1px dashed #ccc', margin: '16px 0' }}/>
+        <p><strong>Số tiền:</strong> <span style={{ fontSize: 18, fontWeight: 'bold' }}>{Number(invoice.amount).toLocaleString('vi-VN')} VNĐ</span></p>
+        <p><strong>Ngân hàng:</strong> {invoice.bank_name}</p>
+        <p><strong>Số tài khoản:</strong> {invoice.account_number}</p>
+        <p><strong>Chủ tài khoản:</strong> {invoice.account_holder}</p>
+        <hr style={{ border: 'none', borderTop: '1px dashed #ccc', margin: '16px 0' }}/>
+        <p style={{ textAlign: 'center', fontStyle: 'italic', fontSize: 12 }}>Giao dịch đã được duyệt thành công trên hệ thống.<br/>Vui lòng lưu lại biên lai này hoặc gửi cho nghệ sĩ để đối chiếu.</p>
+      </div>
+      <div className="admin-actions" style={{ marginTop: 24 }}>
+        <button className="admin-primary" onClick={() => {
+           window.print();
+           setInvoice(null);
+        }}>In Hóa Đơn & Đóng</button>
+      </div>
     </AdminDialog> : null}
   </section>;
 }

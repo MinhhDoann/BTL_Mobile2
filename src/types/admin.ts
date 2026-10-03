@@ -6,7 +6,7 @@ export type AdminStats = {
   total_plays: number;
 };
 
-export type AdminEntity = 'users' | 'songs' | 'artists' | 'albums' | 'genres' | 'playlists';
+export type AdminEntity = 'users' | 'songs' | 'artists' | 'albums' | 'genres' | 'playlists' | 'payout_requests';
 export type AdminRecord = Record<string, string | number | boolean | null | number[]>;
 export type AdminPage = { items: AdminRecord[]; page: number; pageSize: number; total: number };
 export type DeletePreview = { label: string; impacts: { label: string; count: number }[]; confirmation: string };

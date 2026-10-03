@@ -20,9 +20,24 @@ CREATE TABLE artists (
     name VARCHAR(100) NOT NULL,
     bio TEXT,
     avatar_url VARCHAR(255),
+    banner_clicks INT DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE SET NULL
 );
+
+-- Bảng Yêu cầu rút tiền (payout_requests)
+CREATE TABLE payout_requests (
+    request_id INT AUTO_INCREMENT PRIMARY KEY,
+    artist_id INT NOT NULL,
+    amount DECIMAL(15,2) NOT NULL,
+    bank_name VARCHAR(100),
+    account_number VARCHAR(100),
+    account_holder VARCHAR(100),
+    status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (artist_id) REFERENCES artists(artist_id) ON DELETE CASCADE
+);
+
 
 -- 4. Bảng Album (albums)
 CREATE TABLE albums (
@@ -200,19 +215,7 @@ INSERT INTO listening_history (user_id, song_id) VALUES
 
 USE Mobile2;
 ALTER TABLE listening_history AUTO_INCREMENT = 1;
--- Xóa dữ liệu cũ (nếu chạy lại script) theo thứ tự khóa ngoại
-SET FOREIGN_KEY_CHECKS = 0;
-TRUNCATE TABLE listening_history;
-TRUNCATE TABLE user_favorite_songs;
-TRUNCATE TABLE playlist_songs;
-TRUNCATE TABLE playlists;
-TRUNCATE TABLE song_genres;
-TRUNCATE TABLE songs;
-TRUNCATE TABLE albums;
-TRUNCATE TABLE artists;
-TRUNCATE TABLE users;
-TRUNCATE TABLE genres;
-SET FOREIGN_KEY_CHECKS = 1;
+-- Đã bỏ phần TRUNCATE ở cuối file để tránh xóa mất dữ liệu vừa insert.
 
 SELECT * FROM genres;
 SHOW TABLES;
