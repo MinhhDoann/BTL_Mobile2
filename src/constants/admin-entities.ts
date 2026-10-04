@@ -59,4 +59,20 @@ export const ADMIN_ENTITIES: Record<AdminEntity, EntityConfig> = {
     columns: [{ key: 'playlist_id', label: 'ID' }, { key: 'title', label: 'Tên playlist' }, { key: 'owner_name', label: 'Người sở hữu' }, { key: 'song_count', label: 'Số bài hát' }, { key: 'is_public', label: 'Công khai' }],
     fields: [{ key: 'title', label: 'Tên playlist', required: true, max: 100 }, { key: 'user_id', label: 'ID người sở hữu (xem trong bảng Người dùng)', type: 'number', required: true }, { key: 'description', label: 'Mô tả', type: 'textarea', max: 16000 }, { key: 'cover_url', label: 'Cover URL', max: 255 }, { key: 'is_public', label: 'Công khai', type: 'checkbox' }],
   },
+  payout_requests: {
+    title: 'Yêu cầu rút tiền', id: 'request_id',
+    columns: [
+      { key: 'request_id', label: 'ID' },
+      { key: 'artist_name', label: 'Nghệ sĩ' },
+      { key: 'amount', label: 'Số tiền' },
+      { key: 'bank_name', label: 'Ngân hàng' },
+      { key: 'account_number', label: 'Số tài khoản' },
+      { key: 'account_holder', label: 'Chủ tài khoản' },
+      { key: 'status', label: 'Trạng thái' },
+      { key: 'created_at', label: 'Ngày yêu cầu' }
+    ],
+    fields: [
+      { key: 'status', label: 'Trạng thái (pending/approved/rejected)', required: true }
+    ],
+  },
 };

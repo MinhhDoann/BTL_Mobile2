@@ -287,21 +287,10 @@ export function createArtistRouter(db: any): Router {
 
       // Lấy thông tin banner từ artist
       const [artistDataRows]: [any[], any] = await db.query(
-        'SELECT banner_views, banner_clicks FROM artists WHERE artist_id = ?',
+        'SELECT banner_clicks FROM artists WHERE artist_id = ?',
         [artist.artist_id]
       );
-      const bannerViews = Number(artistDataRows[0]?.banner_views) || 0;
       const bannerClicks = Number(artistDataRows[0]?.banner_clicks) || 0;
-
-      // Công thức mới:
-      // Tổng tiền qc = (banner view * 800đ) + (click banner * 3000)
-      // Tiền artist nhận = tổng tiền qc x 70% (sàn cầm 30%)
-      // Thuế tncn = tiền artist nhận x 10%
-      // Thực nhận = Tiền artist nhận - Thuế tncn
-      const tongTienQc = (bannerViews * 800) + (bannerClicks * 3000);
-      const tienArtistNhan = tongTienQc * 0.7;
-      const thueTncn = tienArtistNhan * 0.1;
-      const thucNhan = tienArtistNhan - thueTncn;
 
       // Lấy thêm summary bài hát (có thể vẫn giữ data bài hát để hiển thị)
       const [summary]: [any[], any] = await db.query(
@@ -317,7 +306,30 @@ export function createArtistRouter(db: any): Router {
 
       const totalSongs = Number(summary[0]?.total_songs) || 0;
       const totalPlays = Number(summary[0]?.total_plays) || 0;
-      // const totalRevenue = totalPlays * RATE_PER_PLAY; // Công thức cũ
+
+      const tongTienQc = (totalPlays * 800) + (bannerClicks * 3000);
+      const tienArtistNhan = tongTienQc * 0.7;
+      const thueTncn = tienArtistNhan * 0.1;
+      const totalRevenue = tienArtistNhan - thueTncn;
+
+      // Tính tổng số tiền đã rút (hoặc đang chờ duyệt) để trừ đi
+      const [payouts]: [any[], any] = await db.query(
+        'SELECT COALESCE(SUM(amount), 0) AS total_withdrawn FROM payout_requests WHERE artist_id = ? AND status != "rejected"',
+        [artist.artist_id]
+      );
+      const totalWithdrawn = Number(payouts[0]?.total_withdrawn) || 0;
+      const withdrawableBalance = totalRevenue - totalWithdrawn;
+
+      // Lịch sử rút tiền của artist
+      const [historyRows]: [any[], any] = await db.query(
+        `
+        SELECT request_id, amount, bank_name, account_number, account_holder, status, DATE_FORMAT(created_at, '%d/%m/%Y %H:%i') AS requested_at
+        FROM payout_requests 
+        WHERE artist_id = ? 
+        ORDER BY request_id DESC
+        `,
+        [artist.artist_id]
+      );
 
       const [songRows]: [any[], any] = await db.query(
         `
@@ -340,19 +352,20 @@ export function createArtistRouter(db: any): Router {
           artist_id: artist.artist_id,
           name: artist.name,
           avatar_url: artist.avatar_url,
-          banner_views: bannerViews,
+          banner_views: totalPlays, // Trả về totalPlays dưới dạng banner_views để tương thích frontend
           banner_clicks: bannerClicks,
         },
-        rate_per_play: RATE_PER_PLAY,
+        rate_per_play: 800,
         currency: 'VNĐ',
         total_songs: totalSongs,
         total_plays: totalPlays,
         tong_tien_qc: tongTienQc,
         tien_artist_nhan: tienArtistNhan,
         thue_tncn: thueTncn,
-        total_revenue: thucNhan, // Thực nhận
-        withdrawable_balance: thucNhan,
+        total_revenue: totalRevenue, // Thực nhận (tổng thu nhập từ trước đến nay)
+        withdrawable_balance: withdrawableBalance, // Số tiền còn lại có thể rút
         song_breakdown: songRows,
+        payout_history: historyRows,
       });
     } catch (error: any) {
       console.error('Lỗi tính doanh thu:', error);
@@ -375,29 +388,50 @@ export function createArtistRouter(db: any): Router {
         return res.status(400).json({ message: 'Vui lòng cung cấp đầy đủ thông tin ngân hàng thụ hưởng.' });
       }
 
-      // Lấy thông tin banner từ artist
+      // Lấy thông tin banner clicks từ artist
       const [artistDataRows]: [any[], any] = await db.query(
-        'SELECT banner_views, banner_clicks FROM artists WHERE artist_id = ?',
+        'SELECT banner_clicks FROM artists WHERE artist_id = ?',
         [artist.artist_id]
       );
-      const bannerViews = Number(artistDataRows[0]?.banner_views) || 0;
       const bannerClicks = Number(artistDataRows[0]?.banner_clicks) || 0;
 
-      const tongTienQc = (bannerViews * 800) + (bannerClicks * 3000);
+      // Lấy tổng play_count
+      const [summary]: [any[], any] = await db.query(
+        'SELECT COALESCE(SUM(play_count), 0) AS total_plays FROM songs WHERE artist_id = ?',
+        [artist.artist_id]
+      );
+      const totalPlays = Number(summary[0]?.total_plays) || 0;
+
+      const tongTienQc = (totalPlays * 800) + (bannerClicks * 3000);
       const tienArtistNhan = tongTienQc * 0.7;
       const thueTncn = tienArtistNhan * 0.1;
       const totalRevenue = tienArtistNhan - thueTncn;
 
-      if (payoutAmount > totalRevenue) {
+      // Tính tổng số tiền đã rút (hoặc đang chờ duyệt) để trừ đi
+      const [payouts]: [any[], any] = await db.query(
+        'SELECT COALESCE(SUM(amount), 0) AS total_withdrawn FROM payout_requests WHERE artist_id = ? AND status != "rejected"',
+        [artist.artist_id]
+      );
+      const totalWithdrawn = Number(payouts[0]?.total_withdrawn) || 0;
+      const withdrawableBalance = totalRevenue - totalWithdrawn;
+
+      if (payoutAmount > withdrawableBalance) {
         return res.status(400).json({
           message: 'Số tiền yêu cầu vượt quá tổng doanh thu khả dụng.',
         });
       }
 
+      // Lưu yêu cầu vào cơ sở dữ liệu
+      const [result]: [any, any] = await db.query(
+        'INSERT INTO payout_requests (artist_id, amount, bank_name, account_number, account_holder) VALUES (?, ?, ?, ?, ?)',
+        [artist.artist_id, payoutAmount, bank_name, account_number, account_holder]
+      );
+
       return res.json({
         ok: true,
         message: 'Yêu cầu rút tiền thành công.',
         payout: {
+          request_id: result.insertId,
           amount: payoutAmount,
           bank_name,
           account_number,

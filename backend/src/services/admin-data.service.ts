@@ -51,6 +51,14 @@ export const entities: Record<EntityName, EntityConfig> = {
     joins: 'LEFT JOIN users u ON u.user_id = t.user_id',
     extra: ', u.username AS owner_name, (SELECT COUNT(*) FROM playlist_songs ps WHERE ps.playlist_id = t.playlist_id) AS song_count',
   },
+  payout_requests: {
+    id: 'request_id',
+    label: 'request_id', // Hiển thị ID làm label
+    fields: ['artist_id', 'amount', 'bank_name', 'account_number', 'account_holder', 'status', 'created_at'],
+    search: ['a.name', 't.bank_name', 't.account_number', 't.account_holder'],
+    joins: 'LEFT JOIN artists a ON a.artist_id = t.artist_id',
+    extra: ', a.name AS artist_name',
+  },
 };
 
 export function fail(status: number, message: string): never {
@@ -164,6 +172,19 @@ export function normalize(entity: string, body: any, creating: boolean): any {
         user_id: integer(body.user_id, 'Người sở hữu'),
         is_public: boolean(body.is_public, 'Công khai'),
       };
+    case 'payout_requests': {
+      if (!['pending', 'approved', 'rejected'].includes(body.status)) fail(400, 'Trạng thái không hợp lệ.');
+      const amountVal = Number(body.amount);
+      if (!Number.isFinite(amountVal) || amountVal <= 0) fail(400, 'Số tiền không hợp lệ.');
+      return {
+        artist_id: integer(body.artist_id, 'Nghệ sĩ', true),
+        amount: amountVal,
+        bank_name: text(body.bank_name, 'tên ngân hàng', 100, true),
+        account_number: text(body.account_number, 'số tài khoản', 100, true),
+        account_holder: text(body.account_holder, 'tên chủ tài khoản', 100, true),
+        status: body.status,
+      };
+    }
     default:
       fail(404, 'Mục quản lý không tồn tại.');
   }

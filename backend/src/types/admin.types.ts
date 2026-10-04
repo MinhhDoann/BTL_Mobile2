@@ -1,4 +1,4 @@
-export type EntityName = 'users' | 'songs' | 'artists' | 'albums' | 'genres' | 'playlists';
+export type EntityName = 'users' | 'songs' | 'artists' | 'albums' | 'genres' | 'playlists' | 'payout_requests';
 
 export interface EntityConfig {
   id: string;

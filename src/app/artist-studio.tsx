@@ -557,6 +557,38 @@ export default function ArtistStudioScreen() {
                 </TouchableOpacity>
               </View>
             )}
+            {/* Lịch sử giao dịch */}
+            <View style={[styles.sectionHeader, { marginTop: 24 }]}>
+              <Text style={styles.sectionTitle}>Lịch sử giao dịch rút tiền</Text>
+            </View>
+
+            {revenueData?.payout_history?.length ? (
+              <View style={styles.tableCard}>
+                {revenueData.payout_history.map((item, idx) => (
+                  <View key={item.request_id} style={[styles.tableRow, idx > 0 && styles.tableRowBorder]}>
+                    <View style={styles.tableInfo}>
+                      <Text style={styles.tableSongTitle} numberOfLines={1}>
+                        Yêu cầu #{item.request_id} - {item.bank_name}
+                      </Text>
+                      <Text style={styles.tableSongDate}>
+                        Ngày: {item.requested_at} • {item.account_number}
+                      </Text>
+                    </View>
+                    <View style={styles.tableStats}>
+                      <Text style={[styles.tableRevenue, { color: item.status === 'rejected' ? '#EF4444' : item.status === 'approved' ? '#10B981' : '#F59E0B' }]}>
+                        {item.status === 'approved' ? 'Đã duyệt' : item.status === 'rejected' ? 'Từ chối' : 'Đang xử lý'}
+                      </Text>
+                      <Text style={styles.tablePlays}>{Number(item.amount).toLocaleString()} VNĐ</Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <View style={[styles.emptyCard, { marginTop: 0 }]}>
+                <Ionicons name="receipt-outline" size={48} color="#64748B" />
+                <Text style={styles.emptyText}>Chưa có lịch sử giao dịch.</Text>
+              </View>
+            )}
           </View>
         )}
 

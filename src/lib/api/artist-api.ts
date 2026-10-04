@@ -50,6 +50,15 @@ export interface ArtistRevenueData {
   total_revenue: number;
   withdrawable_balance: number;
   song_breakdown: SongBreakdown[];
+  payout_history?: {
+    request_id: number;
+    amount: number;
+    bank_name: string;
+    account_number: string;
+    account_holder: string;
+    status: 'pending' | 'approved' | 'rejected';
+    requested_at: string;
+  }[];
 }
 
 export interface CreateSongData {

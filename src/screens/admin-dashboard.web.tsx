@@ -128,7 +128,7 @@ export default function AdminDashboard() {
           <Text style={styles.account}>{user?.username}</Text>
           <View style={width < 800 ? { flexDirection: 'row', flexWrap: 'wrap' } : undefined}>
             {([
-              ['overview', 'Tổng quan'], ['song', 'Đăng bài hát'], ['users', 'Người dùng'], ['songs', 'Bài hát'], ['artists', 'Nghệ sĩ'], ['albums', 'Album'], ['genres', 'Thể loại'], ['playlists', 'Playlist'],
+              ['overview', 'Tổng quan'], ['song', 'Đăng bài hát'], ['users', 'Người dùng'], ['songs', 'Bài hát'], ['artists', 'Nghệ sĩ'], ['albums', 'Album'], ['genres', 'Thể loại'], ['playlists', 'Playlist'], ['payout_requests', 'Yêu cầu rút tiền']
             ] as const).map(([key, label]) => (
               <Pressable key={key} accessibilityRole="button" accessibilityState={{ selected: section === key }} onPress={() => { setSection(key); setNotice(''); }} style={[styles.navItem, section === key && styles.navActive]}>
                 <Text style={styles.navText}>{label}</Text>
