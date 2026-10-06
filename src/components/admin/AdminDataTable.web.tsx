@@ -1,6 +1,7 @@
 import { ADMIN_ENTITIES } from '@/src/constants/admin-entities';
 import { deleteAdminRecord, fetchAdminRows, previewAdminDelete } from '@/src/lib/api/admin-api';
 import { AdminDashboardData, AdminEntity, AdminPage, AdminRecord, DeletePreview } from '@/src/types/admin';
+import { formatCurrency } from '@/src/lib/format-currency';
 import { useEffect, useRef, useState } from 'react';
 import { AdminDialog } from './AdminDialog.web';
 import { AdminEntityForm } from './AdminEntityForm.web';
@@ -180,7 +181,7 @@ export function AdminDataTable({ entity, dashboard, currentUserId, onChanged, on
         <p><strong>Ngày duyệt:</strong> {new Date(invoice.approved_at).toLocaleString('vi-VN')}</p>
         <p><strong>Nghệ sĩ:</strong> {invoice.artist_name}</p>
         <hr style={{ border: 'none', borderTop: '1px dashed #ccc', margin: '16px 0' }}/>
-        <p><strong>Số tiền:</strong> <span style={{ fontSize: 18, fontWeight: 'bold' }}>{Number(invoice.amount).toLocaleString('vi-VN')} VNĐ</span></p>
+        <p><strong>Số tiền:</strong> <span style={{ fontSize: 18, fontWeight: 'bold' }}>{formatCurrency(invoice.amount)} VNĐ</span></p>
         <p><strong>Ngân hàng:</strong> {invoice.bank_name}</p>
         <p><strong>Số tài khoản:</strong> {invoice.account_number}</p>
         <p><strong>Chủ tài khoản:</strong> {invoice.account_holder}</p>

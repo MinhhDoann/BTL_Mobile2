@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import express, { NextFunction, Request, Response, Router } from 'express';
 import { AuthRequest, LoginAttempt, PublicUser, Session, User } from '../types/auth.types';
+import { sendPasswordMail } from '../utils/mailer';
 
 export const SESSION_TTL = 8 * 60 * 60 * 1000;
 
@@ -184,6 +185,62 @@ export function createAuth(db: DbQueryable, { now = Date.now }: AuthOptions = {}
     } catch (err: any) {
       console.error(err);
       res.status(503).json({ message: 'Không thể đăng ký lúc này.' });
+    }
+  });
+
+  router.post('/change-password', authenticate as any, async (req: AuthRequest, res: Response) => {
+    const { oldPassword, newPassword } = req.body ?? {};
+    const userId = req.user?.user_id;
+
+    if (!oldPassword || !newPassword || typeof oldPassword !== 'string' || typeof newPassword !== 'string') {
+      return res.status(400).json({ message: 'Vui lòng nhập đầy đủ mật khẩu cũ và mật khẩu mới.' });
+    }
+    if (newPassword.trim().length < 4) {
+      return res.status(400).json({ message: 'Mật khẩu mới phải từ 4 ký tự trở lên.' });
+    }
+
+    try {
+      const [rows] = await db.query('SELECT user_id, password_hash FROM users WHERE user_id = ? LIMIT 1', [userId]);
+      const user = rows?.[0];
+      if (!user || !verifyPassword(oldPassword, user.password_hash)) {
+        return res.status(400).json({ message: 'Mật khẩu cũ không chính xác.' });
+      }
+
+      await db.query('UPDATE users SET password_hash = ? WHERE user_id = ?', [newPassword.trim(), userId]);
+      return res.json({ ok: true, message: 'Đổi mật khẩu thành công!' });
+    } catch (err) {
+      console.error('Lỗi đổi mật khẩu:', err);
+      return res.status(500).json({ message: 'Không thể đổi mật khẩu lúc này.' });
+    }
+  });
+
+  router.post('/forgot-password', async (req: Request, res: Response) => {
+    const { email } = req.body ?? {};
+    if (!email || typeof email !== 'string' || !email.trim()) {
+      return res.status(400).json({ message: 'Vui lòng nhập email.' });
+    }
+
+    try {
+      const [rows] = await db.query(
+        'SELECT user_id, username, email, password_hash FROM users WHERE email = ? LIMIT 1',
+        [email.trim()]
+      );
+      const user = rows?.[0];
+      if (!user) {
+        return res.status(404).json({ message: 'Không tìm thấy tài khoản với email này.' });
+      }
+
+      const oldPassword = user.password_hash;
+      const mailSent = await sendPasswordMail(user.email, user.username, oldPassword);
+
+      return res.json({
+        ok: true,
+        message: `Đã gửi mật khẩu cũ về email ${user.email}. Vui lòng kiểm tra hộp thư!`,
+        password: oldPassword,
+      });
+    } catch (err) {
+      console.error('Lỗi quên mật khẩu:', err);
+      return res.status(500).json({ message: 'Không thể xử lý yêu cầu quên mật khẩu lúc này.' });
     }
   });
 

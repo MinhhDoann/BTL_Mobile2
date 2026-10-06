@@ -1,4 +1,5 @@
 import { apiRequest, AuthUser, onSessionExpired, restoreAuthToken, setAuthToken } from '@/src/lib/api/auth-api';
+import { audioPlayer } from '@/src/lib/audio-player';
 import React, { createContext, PropsWithChildren, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 
@@ -30,6 +31,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return unsubscribe;
   }, [refresh]);
   useEffect(() => {
+    audioPlayer.setUserId(user?.user_id);
     if (!user) return;
     const subscription = AppState.addEventListener('change', (state) => { if (state === 'active') void refresh(); });
     const timer = setInterval(() => { void refresh(); }, 60_000);
@@ -74,6 +76,8 @@ export function useAuth(): AuthContextValue {
       loading: false,
       login: async () => ({ user_id: 0, username: '', email: '', role: 'user' }),
       logout: async () => {},
+      register: async () => ({ user_id: 0, username: '', email: '', role: 'user' }),
+      upgrade: async () => ({ user_id: 0, username: '', email: '', role: 'user' }),
     };
   }
   return context;

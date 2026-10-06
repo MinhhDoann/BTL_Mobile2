@@ -1,7 +1,8 @@
+import { useAuth } from '@/src/contexts/auth';
 import { detectApiBase } from '@/src/lib/api/detectApi';
 import { audioPlayer } from '@/src/lib/audio-player';
 import { getCoverUrl } from '@/src/lib/cover-image';
-import { MaterialIcons } from '@expo/vector-icons';
+import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
@@ -12,7 +13,12 @@ import {
     Text,
     TouchableOpacity,
     View,
-    Linking
+    Linking,
+    Dimensions,
+    Pressable,
+    Modal,
+    Alert,
+    TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -37,7 +43,9 @@ export default function SongDetailScreen() {
   const router = useRouter();
   const { songId } = useLocalSearchParams<{ songId: string }>();
 
+  const { user } = useAuth();
   const [detail, setDetail] = useState<SongDetailItem | null>(null);
+  const [artistSongs, setArtistSongs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
   const [positionMs, setPositionMs] = useState(0);
@@ -50,9 +58,48 @@ export default function SongDetailScreen() {
   const [repeatMode, setRepeatMode] = useState<'off' | 'all' | 'one'>('off');
   const [showLyrics, setShowLyrics] = useState(false);
   const [showAddToPlaylistModal, setShowAddToPlaylistModal] = useState(false);
+  const [showSponsorModal, setShowSponsorModal] = useState(false);
   const [userPlaylists, setUserPlaylists] = useState<any[]>([]);
   const [addingToPlaylistId, setAddingToPlaylistId] = useState<number | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Complaint modal state
+  const [showComplaintModal, setShowComplaintModal] = useState(false);
+  const [complaintReason, setComplaintReason] = useState<'Bản quyền' | 'Nội dung bài hát' | 'Khác'>('Bản quyền');
+  const [complaintDescription, setComplaintDescription] = useState('');
+  const [submittingComplaint, setSubmittingComplaint] = useState(false);
+
+  const handleSubmitComplaint = async () => {
+    if (!detail) return;
+    try {
+      setSubmittingComplaint(true);
+      const base = await detectApiBase();
+      const res = await fetch(`${base}/api/songs/${detail.song_id}/complaint`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user?.user_id,
+          reason_type: complaintReason,
+          description: complaintDescription,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setShowComplaintModal(false);
+        setComplaintDescription('');
+        setToastMessage('Đã gửi khiếu nại bài hát thành công! Ban quản trị sẽ xử lý.');
+        setTimeout(() => setToastMessage(null), 3000);
+      } else {
+        Alert.alert('Lỗi', data.message || 'Không thể gửi khiếu nại.');
+      }
+    } catch (e) {
+      console.error('Lỗi gửi khiếu nại:', e);
+      Alert.alert('Lỗi', 'Không thể kết nối đến máy chủ.');
+    } finally {
+      setSubmittingComplaint(false);
+    }
+  };
 
   const fetchUserPlaylists = async () => {
     try {
@@ -104,6 +151,7 @@ export default function SongDetailScreen() {
         const response = await fetch(`${base}/api/songs/${songId}/detail`);
         const data = await response.json();
         setDetail(data?.song || data || null);
+        setArtistSongs(data?.relatedByArtist || []);
       } catch (error) {
         console.error('Error fetch song detail:', error);
       } finally {
@@ -115,11 +163,11 @@ export default function SongDetailScreen() {
   }, [songId]);
 
   useEffect(() => {
-    if (detail?.song?.artist_id) {
+    if (detail?.artist_id) {
       const recordAdView = async () => {
         try {
           const base = await detectApiBase();
-          await fetch(`${base}/api/artist/${detail.song.artist_id}/ad-interaction`, {
+          await fetch(`${base}/api/artist/${detail.artist_id}/ad-interaction`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ type: 'view' }),
@@ -128,19 +176,33 @@ export default function SongDetailScreen() {
       };
       recordAdView();
     }
-  }, [detail?.song?.artist_id]);
+  }, [detail?.artist_id]);
+
+  const handleOpenLink = async (url: string) => {
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert('Thông báo', `Không thể mở liên kết: ${url}`);
+      }
+    } catch (err) {
+      console.error('Lỗi khi mở đường dẫn:', err);
+    }
+  };
 
   const handleAdClick = async () => {
-    if (!detail?.song?.artist_id) return;
-    try {
-      const base = await detectApiBase();
-      await fetch(`${base}/api/artist/${detail.song.artist_id}/ad-interaction`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'click' }),
-      });
-      Linking.openURL('https://www.facebook.com');
-    } catch (err) {}
+    if (detail?.artist_id) {
+      try {
+        const base = await detectApiBase();
+        await fetch(`${base}/api/artist/${detail.artist_id}/ad-interaction`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'click' }),
+        });
+      } catch (err) {}
+    }
+    setShowSponsorModal(true);
   };
 
   useEffect(() => {
@@ -159,20 +221,11 @@ export default function SongDetailScreen() {
       songId: trackSong.song_id,
       audioUrl: trackSong.audio_url,
       title: trackSong.title,
-      artistName: trackSong.artist_name,
+      artist: trackSong.artist_name,
       coverUrl: trackSong.cover_url,
     });
   };
 
-  const playSong = async (trackSong: RelatedSong | SongDetailItem) => {
-    await audioPlayer.playTrack({ 
-      songId: trackSong.song_id, 
-      audioUrl: trackSong.audio_url,
-      title: trackSong.title,
-      coverUrl: trackSong.cover_url,
-      artist: trackSong.artist_name,
-    });
-  };
 
   const handleTogglePlay = async () => {
     if (!detail) return;
@@ -264,6 +317,8 @@ export default function SongDetailScreen() {
             <MaterialIcons name="more-vert" size={26} color="#F8FAFC" />
           </TouchableOpacity>
         </View>
+
+        <View style={styles.playerCardContainer}>
 
         {/* Cover Image */}
         <View style={styles.coverContainer}>
@@ -402,11 +457,53 @@ export default function SongDetailScreen() {
             <Text style={styles.bottomChipText}>Thêm vào DS</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.bottomChip} activeOpacity={0.8}>
-            <MaterialIcons name="share" size={18} color="#94A3B8" />
-            <Text style={styles.bottomChipText}>Chia sẻ</Text>
+          <TouchableOpacity style={styles.bottomChip} activeOpacity={0.8} onPress={() => setShowComplaintModal(true)}>
+            <MaterialIcons name="report" size={18} color="#EF4444" />
+            <Text style={[styles.bottomChipText, { color: '#EF4444' }]}>Khiếu nại</Text>
           </TouchableOpacity>
         </View>
+
+        </View>
+
+        {/* Quảng cáo Banner */}
+        <TouchableOpacity style={styles.adBannerTouch} onPress={handleAdClick} activeOpacity={0.9}>
+          <Image source={{ uri: 'https://dummyimage.com/600x120/111827/a78bfa.png&text=Sponsor+Ad' }} style={styles.adBannerImg} resizeMode='contain' />
+        </TouchableOpacity>
+
+        {/* Tác giả */}
+        <Text style={styles.sectionHeading}>Tác giả</Text>
+        <TouchableOpacity style={styles.artistCard} onPress={() => {}}>
+          <Image source={{ uri: detail.artist_avatar ? getCoverUrl(detail.artist_avatar) : 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400' }} style={styles.artistAvatar} />
+          <View style={styles.artistCardTextWrap}>
+            <Text style={styles.artistCardName}>{detail.artist_name}</Text>
+            <Text style={styles.artistCardRole}>Nghệ sĩ</Text>
+          </View>
+        </TouchableOpacity>
+
+        {/* Lời bài hát */}
+        <Text style={styles.sectionHeading}>Lời bài hát</Text>
+        <View style={styles.lyricsCard}>
+          <Text style={styles.lyricsPreviewText}>{detail.lyrics || 'Bài hát chưa có lời.'}</Text>
+        </View>
+
+        {/* Nhạc cùng tác giả */}
+        <Text style={styles.sectionHeading}>Nhạc cùng tác giả</Text>
+        {artistSongs.length > 0 ? (
+          <View style={styles.artistSongsCard}>
+            {artistSongs.map((s, idx) => (
+              <TouchableOpacity key={s.song_id} style={[styles.songItem, idx > 0 && styles.songItemBorder]} onPress={() => playSong(s)}>
+                <Image source={{ uri: getCoverUrl(s.cover_url) }} style={styles.songItemCover} />
+                <View style={styles.songItemTextWrap}>
+                  <Text style={styles.songItemTitle} numberOfLines={1}>{s.title}</Text>
+                  <Text style={styles.songItemArtist} numberOfLines={1}>{s.artist_name}</Text>
+                </View>
+                <MaterialIcons name="play-arrow" size={28} color="#a78bfa" />
+              </TouchableOpacity>
+            ))}
+          </View>
+        ) : (
+          <Text style={styles.noSongsText}>Khám phá thêm sau.</Text>
+        )}
       </ScrollView>
 
       {/* Lyrics Modal */}
@@ -440,27 +537,11 @@ export default function SongDetailScreen() {
               </TouchableOpacity>
             </View>
 
-          {/* Qu?ng c�o Banner */}
-          <TouchableOpacity style={{ marginTop: 16, borderRadius: 12, overflow: 'hidden' }} onPress={handleAdClick}>
-            <Image source={{ uri: 'https://dummyimage.com/600x100/111827/a78bfa.png&text=Sponsor+Ad' }} style={{ width: '100%', height: 60 }} resizeMode='cover' />
-          </TouchableOpacity>
-
-          <View style={styles.infoCard}>
-            <Text style={styles.label}>Tác giả</Text>
-            <View style={styles.authorRow}>
-              <Image
-                source={{
-                  uri:
-                    song.artist_avatar ||
-                    'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80',
-                }}
-                style={styles.avatar}
-              />
-              <View style={styles.authorMeta}>
-                <Text style={styles.authorName}>{song.artist_name}</Text>
-                <Text style={styles.authorSub}>Nghệ sĩ</Text>
-              </View>
-            ) : (
+          {userPlaylists.length === 0 ? (
+            <Text style={{ color: '#94A3B8', textAlign: 'center', marginTop: 20 }}>
+              Bạn chưa có danh sách phát nào.
+            </Text>
+          ) : (
               <ScrollView style={{ maxHeight: 300, marginTop: 8 }}>
                 {userPlaylists.map((pl) => (
                   <TouchableOpacity
@@ -489,6 +570,195 @@ export default function SongDetailScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Complaint Modal */}
+      <Modal visible={showComplaintModal} animationType="slide" transparent={true} onRequestClose={() => setShowComplaintModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modalTitle}>Khiếu nại bài hát</Text>
+                <Text style={{ color: '#94A3B8', fontSize: 13, marginTop: 2 }} numberOfLines={1}>
+                  {detail.title} - {detail.artist_name}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowComplaintModal(false)} style={styles.closeModalButton}>
+                <MaterialIcons name="close" size={24} color="#F8FAFC" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ marginTop: 8 }} keyboardShouldPersistTaps="handled">
+              <Text style={{ color: '#E2E8F0', fontWeight: '600', marginBottom: 8, fontSize: 14 }}>
+                Lý do khiếu nại:
+              </Text>
+              
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+                {[
+                  { key: 'Bản quyền', label: '🛡️ Bản quyền' },
+                  { key: 'Nội dung bài hát', label: '⚠️ Nội dung bài hát' },
+                  { key: 'Khác', label: '📝 Lý do khác' },
+                ].map((item) => (
+                  <TouchableOpacity
+                    key={item.key}
+                    onPress={() => setComplaintReason(item.key as any)}
+                    style={{
+                      paddingHorizontal: 14,
+                      paddingVertical: 10,
+                      borderRadius: 12,
+                      backgroundColor: complaintReason === item.key ? '#312E81' : '#0F172A',
+                      borderWidth: 1,
+                      borderColor: complaintReason === item.key ? '#818CF8' : '#1E293B',
+                    }}
+                  >
+                    <Text style={{ color: complaintReason === item.key ? '#818CF8' : '#94A3B8', fontWeight: '600', fontSize: 13 }}>
+                      {item.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={{ color: '#E2E8F0', fontWeight: '600', marginBottom: 8, fontSize: 14 }}>
+                Mô tả chi tiết:
+              </Text>
+              <TextInput
+                style={{
+                  backgroundColor: '#0F172A',
+                  borderColor: '#334155',
+                  borderWidth: 1,
+                  borderRadius: 12,
+                  padding: 12,
+                  color: '#FFFFFF',
+                  minHeight: 90,
+                  textAlignVertical: 'top',
+                  fontSize: 14,
+                  marginBottom: 20,
+                }}
+                placeholder="Nhập nội dung chi tiết về vấn đề khiếu nại (bản quyền, vi phạm, v.v.)..."
+                placeholderTextColor="#64748B"
+                multiline
+                value={complaintDescription}
+                onChangeText={setComplaintDescription}
+              />
+
+              <View style={{ flexDirection: 'row', gap: 12, justifyContent: 'flex-end', marginBottom: 8 }}>
+                <TouchableOpacity
+                  onPress={() => setShowComplaintModal(false)}
+                  style={{
+                    paddingHorizontal: 18,
+                    paddingVertical: 12,
+                    borderRadius: 10,
+                    backgroundColor: '#334155',
+                  }}
+                >
+                  <Text style={{ color: '#E2E8F0', fontWeight: '600' }}>Hủy</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={handleSubmitComplaint}
+                  disabled={submittingComplaint}
+                  style={{
+                    paddingHorizontal: 20,
+                    paddingVertical: 12,
+                    borderRadius: 10,
+                    backgroundColor: '#EF4444',
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 6,
+                    opacity: submittingComplaint ? 0.7 : 1,
+                  }}
+                >
+                  {submittingComplaint ? (
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                  ) : (
+                    <MaterialIcons name="send" size={18} color="#FFFFFF" />
+                  )}
+                  <Text style={{ color: '#FFFFFF', fontWeight: 'bold' }}>
+                    {submittingComplaint ? 'Đang gửi...' : 'Gửi khiếu nại'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Sponsor Links Modal */}
+      <Modal
+        visible={showSponsorModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowSponsorModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modalTitle}>Liên Hệ & Nhà Tài Trợ 🚀</Text>
+                <Text style={{ color: '#94A3B8', fontSize: 13, marginTop: 2 }}>
+                  Chọn liên kết bạn muốn truy cập bên dưới
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setShowSponsorModal(false)}
+                style={styles.closeModalButton}
+              >
+                <MaterialIcons name="close" size={24} color="#F8FAFC" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ gap: 12, marginTop: 8, marginBottom: 12 }}>
+              {/* Facebook Link */}
+              <TouchableOpacity
+                style={styles.sponsorLinkCard}
+                activeOpacity={0.7}
+                onPress={() => handleOpenLink('https://www.facebook.com')}
+              >
+                <View style={[styles.sponsorIconWrap, { backgroundColor: 'rgba(24, 119, 242, 0.15)' }]}>
+                  <Ionicons name="logo-facebook" size={24} color="#1877F2" />
+                </View>
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text style={styles.sponsorLinkTitle}>Facebook hiện tại</Text>
+                  <Text style={styles.sponsorLinkSubtitle}>https://www.facebook.com</Text>
+                </View>
+                <MaterialIcons name="open-in-new" size={20} color="#64748B" />
+              </TouchableOpacity>
+
+              {/* GitHub Link */}
+              <TouchableOpacity
+                style={styles.sponsorLinkCard}
+                activeOpacity={0.7}
+                onPress={() => handleOpenLink('https://github.com/MinhhDoann/BTL_Mobile2')}
+              >
+                <View style={[styles.sponsorIconWrap, { backgroundColor: 'rgba(240, 246, 252, 0.15)' }]}>
+                  <Ionicons name="logo-github" size={24} color="#F0F6FC" />
+                </View>
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text style={styles.sponsorLinkTitle}>GitHub của project</Text>
+                  <Text style={styles.sponsorLinkSubtitle}>github.com/MinhhDoann/BTL_Mobile2</Text>
+                </View>
+                <MaterialIcons name="open-in-new" size={20} color="#64748B" />
+              </TouchableOpacity>
+
+              {/* Gmail Link */}
+              <TouchableOpacity
+                style={styles.sponsorLinkCard}
+                activeOpacity={0.7}
+                onPress={() => handleOpenLink('mailto:minhdoan.contact@gmail.com')}
+              >
+                <View style={[styles.sponsorIconWrap, { backgroundColor: 'rgba(234, 67, 53, 0.15)' }]}>
+                  <Ionicons name="mail" size={24} color="#EA4335" />
+                </View>
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text style={styles.sponsorLinkTitle}>Gmail liên hệ</Text>
+                  <Text style={styles.sponsorLinkSubtitle}>minhdoan.contact@gmail.com</Text>
+                </View>
+                <MaterialIcons name="open-in-new" size={20} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
 
       {/* Toast Notification */}
       {toastMessage ? (
@@ -707,16 +977,20 @@ const styles = StyleSheet.create({
     marginTop: 24,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
+    gap: 8,
+    width: '100%',
   },
   bottomChip: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 10,
+    borderRadius: 16,
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    gap: 6,
+    gap: 4,
   },
   activeChip: {
     backgroundColor: 'rgba(56, 189, 248, 0.12)',
@@ -767,7 +1041,138 @@ const styles = StyleSheet.create({
   lyricsText: {
     color: '#CBD5E1',
     fontSize: 16,
-    lineHeight: 26,
+    lineHeight: 28,
     textAlign: 'center',
+  },
+  playerCardContainer: {
+    backgroundColor: '#131c31',
+    borderRadius: 24,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.03)',
+  },
+  adBannerTouch: {
+    marginTop: 24,
+    borderRadius: 16,
+    overflow: 'hidden',
+    width: '100%',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
+  adBannerImg: {
+    width: '100%',
+    height: 80,
+  },
+  sectionHeading: {
+    color: '#F8FAFC',
+    fontSize: 18,
+    fontWeight: '700',
+    marginTop: 24,
+    marginBottom: 12,
+  },
+  artistCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#131c31',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.03)',
+  },
+  artistAvatar: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#1E293B',
+  },
+  artistCardTextWrap: {
+    marginLeft: 16,
+    flex: 1,
+  },
+  artistCardName: {
+    color: '#F8FAFC',
+    fontSize: 17,
+    fontWeight: 'bold',
+  },
+  artistCardRole: {
+    color: '#94A3B8',
+    fontSize: 14,
+    marginTop: 2,
+  },
+  lyricsCard: {
+    backgroundColor: '#131c31',
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.03)',
+  },
+  lyricsPreviewText: {
+    color: '#CBD5E1',
+    fontSize: 15,
+    lineHeight: 24,
+  },
+  artistSongsCard: {
+    backgroundColor: 'transparent',
+    gap: 12,
+  },
+  songItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#131c31',
+    borderRadius: 16,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.03)',
+  },
+  songItemBorder: {},
+  songItemCover: {
+    width: 60,
+    height: 60,
+    borderRadius: 12,
+    backgroundColor: '#1E293B',
+  },
+  songItemTextWrap: {
+    flex: 1,
+    marginLeft: 16,
+  },
+  songItemTitle: {
+    color: '#F8FAFC',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  songItemArtist: {
+    color: '#94A3B8',
+    fontSize: 13,
+  },
+  noSongsText: {
+    color: '#64748B',
+    fontSize: 14,
+  },
+  sponsorLinkCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0F172A',
+    borderColor: '#334155',
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 14,
+  },
+  sponsorIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sponsorLinkTitle: {
+    color: '#F8FAFC',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  sponsorLinkSubtitle: {
+    color: '#94A3B8',
+    fontSize: 12,
+    marginTop: 2,
   },
 });

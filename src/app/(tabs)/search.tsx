@@ -218,7 +218,7 @@ export default function SearchScreen() {
                       songId: song.id,
                       audioUrl: '',
                       title: song.title,
-                      artistName: song.artist,
+                      artist: song.artist,
                       coverUrl: song.cover,
                     });
                     router.navigate({ pathname: '/song-detail', params: { songId: String(song.id) } });
@@ -236,7 +236,6 @@ export default function SearchScreen() {
           )}
         </ScrollView>
 
-        <MiniPlayer />
         <Footer actions={footerActions} />
       </View>
     </SafeAreaView>

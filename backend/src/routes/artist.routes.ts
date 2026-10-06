@@ -74,11 +74,13 @@ export function createArtistRouter(db: any): Router {
     }
   });
 
+  const clickHistory = new Map<string, number>();
+
   // Endpoint công khai: Ghi nhận tương tác banner QC của nghệ sĩ
   router.post('/:artistId/ad-interaction', async (req: any, res: any) => {
     try {
       const artistId = Number(req.params.artistId);
-      const { type } = req.body; // 'view' hoặc 'click'
+      const { type, userId } = req.body || {}; // 'view' hoặc 'click'
 
       if (!artistId || !Number.isFinite(artistId)) {
         return res.status(400).json({ message: 'artistId không hợp lệ.' });
@@ -87,6 +89,16 @@ export function createArtistRouter(db: any): Router {
       if (type === 'view') {
         await db.query('UPDATE artists SET banner_views = banner_views + 1 WHERE artist_id = ?', [artistId]);
       } else if (type === 'click') {
+        const clientKey = `${userId || req.ip || 'anon'}_${artistId}`;
+        const lastClickTime = clickHistory.get(clientKey) || 0;
+        const now = Date.now();
+        const COOLDOWN_MS = 15 * 60 * 1000; // 15 phút cooldown chống spam click
+
+        if (now - lastClickTime < COOLDOWN_MS) {
+          return res.json({ ok: true, message: 'Ghi nhận click quảng cáo (giới hạn cooldown 15 phút).' });
+        }
+
+        clickHistory.set(clientKey, now);
         await db.query('UPDATE artists SET banner_clicks = banner_clicks + 1 WHERE artist_id = ?', [artistId]);
       } else {
         return res.status(400).json({ message: 'Loại tương tác không hợp lệ (view/click).' });
@@ -238,7 +250,7 @@ export function createArtistRouter(db: any): Router {
 
       return res.status(201).json({
         ok: true,
-        message: 'Đăng bài hát thành công!',
+        message: 'Đăng bài hát thành công! Đây là phần mềm trung gian, người đăng tự chịu trách nhiệm bản quyền',
         songId,
       });
     } catch (error: any) {
@@ -292,7 +304,7 @@ export function createArtistRouter(db: any): Router {
       );
       const bannerClicks = Number(artistDataRows[0]?.banner_clicks) || 0;
 
-      // Lấy thêm summary bài hát (có thể vẫn giữ data bài hát để hiển thị)
+      // Lấy summary bài hát
       const [summary]: [any[], any] = await db.query(
         `
         SELECT 
@@ -307,10 +319,11 @@ export function createArtistRouter(db: any): Router {
       const totalSongs = Number(summary[0]?.total_songs) || 0;
       const totalPlays = Number(summary[0]?.total_plays) || 0;
 
-      const tongTienQc = (totalPlays * 800) + (bannerClicks * 3000);
+      const tongTienQc = bannerClicks * 3000;
       const tienArtistNhan = tongTienQc * 0.7;
       const thueTncn = tienArtistNhan * 0.1;
-      const totalRevenue = tienArtistNhan - thueTncn;
+      const tongTienBaiHat = totalPlays * RATE_PER_PLAY; // 100 VNĐ / play
+      const totalRevenue = (tienArtistNhan - thueTncn) + tongTienBaiHat;
 
       // Tính tổng số tiền đã rút (hoặc đang chờ duyệt) để trừ đi
       const [payouts]: [any[], any] = await db.query(
@@ -360,6 +373,7 @@ export function createArtistRouter(db: any): Router {
         total_songs: totalSongs,
         total_plays: totalPlays,
         tong_tien_qc: tongTienQc,
+        tong_tien_bai_hat: tongTienBaiHat,
         tien_artist_nhan: tienArtistNhan,
         thue_tncn: thueTncn,
         total_revenue: totalRevenue, // Thực nhận (tổng thu nhập từ trước đến nay)
@@ -402,10 +416,11 @@ export function createArtistRouter(db: any): Router {
       );
       const totalPlays = Number(summary[0]?.total_plays) || 0;
 
-      const tongTienQc = (totalPlays * 800) + (bannerClicks * 3000);
+      const tongTienQc = bannerClicks * 3000;
       const tienArtistNhan = tongTienQc * 0.7;
       const thueTncn = tienArtistNhan * 0.1;
-      const totalRevenue = tienArtistNhan - thueTncn;
+      const tongTienBaiHat = totalPlays * RATE_PER_PLAY;
+      const totalRevenue = (tienArtistNhan - thueTncn) + tongTienBaiHat;
 
       // Tính tổng số tiền đã rút (hoặc đang chờ duyệt) để trừ đi
       const [payouts]: [any[], any] = await db.query(

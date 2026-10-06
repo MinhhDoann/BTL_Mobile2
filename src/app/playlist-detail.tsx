@@ -194,7 +194,7 @@ export default function PlaylistDetailScreen() {
       songId: song.song_id,
       audioUrl: song.audio_url,
       title: song.title,
-      artistName: song.artist_name,
+      artist: song.artist_name,
       coverUrl: song.cover_url,
     });
     router.push({ pathname: '/song-detail', params: { songId: String(song.song_id) } });
@@ -386,7 +386,6 @@ export default function PlaylistDetailScreen() {
           </View>
         </Modal>
 
-        <MiniPlayer />
         <Footer actions={footerActions} />
       </View>
     </SafeAreaView>

@@ -248,7 +248,7 @@ adminRouter.post('/songs', async (req: Request, res: Response) => {
     );
 
     return res.status(201).json({
-      message: 'Đăng bài thành công.',
+      message: 'Đăng bài thành công. Đây là phần mềm trung gian, người đăng tự chịu trách nhiệm bản quyền',
       song: createdSong[0],
     });
   } catch (error: any) {
@@ -256,3 +256,221 @@ adminRouter.post('/songs', async (req: Request, res: Response) => {
     return res.status(500).json({ message: 'Không thể đăng bài hát', error: error.message });
   }
 });
+
+// GET /api/admin/complaints - Lấy danh sách khiếu nại
+adminRouter.get('/complaints', async (_req: Request, res: Response) => {
+  try {
+    const [rows]: [any[], any] = await db.query(`
+      SELECT 
+        c.complaint_id,
+        c.reason_type,
+        c.description,
+        c.status,
+        c.created_at,
+        s.song_id,
+        s.title AS song_title,
+        s.cover_url AS song_cover,
+        s.duration AS song_duration,
+        s.audio_url AS song_audio,
+        a.artist_id,
+        a.name AS artist_name,
+        a.avatar_url AS artist_avatar,
+        a.bio AS artist_bio,
+        u.user_id AS complainant_id,
+        u.username AS complainant_name,
+        u.email AS complainant_email
+      FROM complaints c
+      JOIN songs s ON c.song_id = s.song_id
+      LEFT JOIN artists a ON s.artist_id = a.artist_id
+      JOIN users u ON c.user_id = u.user_id
+      ORDER BY c.created_at DESC
+    `);
+
+    return res.json({ complaints: rows });
+  } catch (error: any) {
+    console.error('Lỗi lấy danh sách khiếu nại:', error);
+    return res.status(500).json({ message: 'Không thể lấy danh sách khiếu nại', error: error.message });
+  }
+});
+
+// PUT /api/admin/complaints/:id/status - Tiếp nhận hoặc Từ chối khiếu nại
+adminRouter.put('/complaints/:id/status', async (req: Request, res: Response) => {
+  try {
+    const complaintId = Number(req.params.id);
+    const { status } = req.body ?? {};
+
+    if (!complaintId || !Number.isFinite(complaintId)) {
+      return res.status(400).json({ message: 'ID khiếu nại không hợp lệ.' });
+    }
+
+    if (!['accepted', 'rejected', 'pending'].includes(status)) {
+      return res.status(400).json({ message: 'Trạng thái không hợp lệ.' });
+    }
+
+    const [result]: [any, any] = await db.query(
+      `UPDATE complaints SET status = ? WHERE complaint_id = ?`,
+      [status, complaintId]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Không tìm thấy khiếu nại.' });
+    }
+
+    return res.json({
+      ok: true,
+      message: status === 'accepted' ? 'Đã tiếp nhận khiếu nại thành công.' : 'Đã từ chối khiếu nại.',
+    });
+  } catch (error: any) {
+    console.error('Lỗi cập nhật trạng thái khiếu nại:', error);
+    return res.status(500).json({ message: 'Không thể cập nhật trạng thái khiếu nại', error: error.message });
+  }
+});
+
+// GET /api/admin/revenue/report - Báo cáo thống kê doanh thu toàn hệ thống
+adminRouter.get('/revenue/report', async (_req: Request, res: Response) => {
+  try {
+    const [statsRows]: [any[], any] = await db.query(`
+      SELECT
+        (SELECT COUNT(*) FROM users) AS total_users,
+        (SELECT COUNT(*) FROM artists) AS total_artists,
+        (SELECT COUNT(*) FROM songs) AS total_songs,
+        (SELECT COALESCE(SUM(play_count), 0) FROM songs) AS total_plays,
+        (SELECT COALESCE(SUM(banner_clicks), 0) FROM artists) AS total_banner_clicks
+    `);
+
+    const stats = statsRows[0] || { total_users: 0, total_artists: 0, total_songs: 0, total_plays: 0, total_banner_clicks: 0 };
+    const totalPlays = Number(stats.total_plays) || 0;
+    const totalBannerClicks = Number(stats.total_banner_clicks) || 0;
+
+    const songPlayRevenue = totalPlays * 100;
+    const adBannerRevenue = totalBannerClicks * 3000;
+    const grossSystemRevenue = songPlayRevenue + adBannerRevenue;
+
+    const platformAdShare = adBannerRevenue * 0.30;
+    const artistAdShareGross = adBannerRevenue * 0.70;
+    const pitTaxWithheld = artistAdShareGross * 0.10;
+    const artistAdShareNet = artistAdShareGross - pitTaxWithheld;
+
+    const totalArtistNetEarnings = artistAdShareNet + songPlayRevenue;
+    const platformNetRevenue = platformAdShare + pitTaxWithheld;
+
+    // Payout stats
+    const [payoutRows]: [any[], any] = await db.query(`
+      SELECT 
+        COUNT(*) AS total_requests,
+        COALESCE(SUM(CASE WHEN status = 'approved' THEN amount ELSE 0 END), 0) AS approved_amount,
+        COALESCE(SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END), 0) AS pending_amount,
+        COALESCE(SUM(CASE WHEN status = 'rejected' THEN amount ELSE 0 END), 0) AS rejected_amount
+      FROM payout_requests
+    `);
+    const payoutSummary = payoutRows[0] || { total_requests: 0, approved_amount: 0, pending_amount: 0, rejected_amount: 0 };
+
+    // Detailed artist revenue list
+    const [artistRows]: [any[], any] = await db.query(`
+      SELECT 
+        a.artist_id,
+        a.name AS artist_name,
+        a.avatar_url,
+        COALESCE(s.total_songs, 0) AS total_songs,
+        COALESCE(s.total_plays, 0) AS total_plays,
+        COALESCE(a.banner_clicks, 0) AS banner_clicks,
+        COALESCE(p.total_withdrawn, 0) AS total_withdrawn
+      FROM artists a
+      LEFT JOIN (
+        SELECT artist_id, COUNT(song_id) AS total_songs, COALESCE(SUM(play_count), 0) AS total_plays
+        FROM songs
+        GROUP BY artist_id
+      ) s ON s.artist_id = a.artist_id
+      LEFT JOIN (
+        SELECT artist_id, COALESCE(SUM(amount), 0) AS total_withdrawn
+        FROM payout_requests
+        WHERE status != 'rejected'
+        GROUP BY artist_id
+      ) p ON p.artist_id = a.artist_id
+      ORDER BY s.total_plays DESC, a.banner_clicks DESC
+    `);
+
+    const artistBreakdown = artistRows.map((art: any) => {
+      const plays = Number(art.total_plays) || 0;
+      const clicks = Number(art.banner_clicks) || 0;
+      const withdrawn = Number(art.total_withdrawn) || 0;
+
+      const songRev = plays * 100;
+      const adGross = clicks * 3000;
+      const artistAdShare = adGross * 0.7;
+      const pitTax = artistAdShare * 0.1;
+      const artistNet = (artistAdShare - pitTax) + songRev;
+      const availableBalance = Math.max(0, artistNet - withdrawn);
+
+      return {
+        artist_id: art.artist_id,
+        artist_name: art.artist_name,
+        avatar_url: art.avatar_url,
+        total_songs: Number(art.total_songs) || 0,
+        total_plays: plays,
+        banner_clicks: clicks,
+        song_revenue: songRev,
+        ad_gross_revenue: adGross,
+        artist_ad_share: artistAdShare,
+        pit_tax: pitTax,
+        artist_net: artistNet,
+        total_withdrawn: withdrawn,
+        available_balance: availableBalance,
+      };
+    });
+
+    // Top songs revenue
+    const [topSongRows]: [any[], any] = await db.query(`
+      SELECT 
+        s.song_id,
+        s.title,
+        s.cover_url,
+        s.play_count,
+        (s.play_count * 100) AS song_revenue,
+        a.name AS artist_name
+      FROM songs s
+      LEFT JOIN artists a ON a.artist_id = s.artist_id
+      ORDER BY s.play_count DESC, s.song_id DESC
+      LIMIT 10
+    `);
+
+    return res.json({
+      summary: {
+        total_users: Number(stats.total_users) || 0,
+        total_artists: Number(stats.total_artists) || 0,
+        total_songs: Number(stats.total_songs) || 0,
+        total_plays: totalPlays,
+        total_banner_clicks: totalBannerClicks,
+        song_play_revenue: songPlayRevenue,
+        ad_banner_revenue: adBannerRevenue,
+        gross_system_revenue: grossSystemRevenue,
+        platform_ad_share: platformAdShare,
+        artist_ad_share_gross: artistAdShareGross,
+        pit_tax_withheld: pitTaxWithheld,
+        artist_ad_share_net: artistAdShareNet,
+        total_artist_net_earnings: totalArtistNetEarnings,
+        platform_net_revenue: platformNetRevenue,
+      },
+      payout_summary: {
+        total_requests: Number(payoutSummary.total_requests) || 0,
+        approved_amount: Number(payoutSummary.approved_amount) || 0,
+        pending_amount: Number(payoutSummary.pending_amount) || 0,
+        rejected_amount: Number(payoutSummary.rejected_amount) || 0,
+      },
+      artist_breakdown: artistBreakdown,
+      top_songs: topSongRows.map((song: any) => ({
+        song_id: song.song_id,
+        title: song.title,
+        cover_url: song.cover_url,
+        play_count: Number(song.play_count) || 0,
+        song_revenue: Number(song.song_revenue) || 0,
+        artist_name: song.artist_name || 'Nghệ sĩ chưa rõ',
+      })),
+    });
+  } catch (error: any) {
+    console.error('Lỗi lấy báo cáo doanh thu admin:', error);
+    return res.status(500).json({ message: 'Không thể tải báo cáo doanh thu quản trị', error: error.message });
+  }
+});
+
+

@@ -2,7 +2,7 @@ const mysql = require('mysql2/promise');
 mysql.createConnection({
   host: 'localhost', 
   user: 'root', 
-  password: '352001', 
+  password: process.env.DB_PASSWORD || '1234', 
   database: 'mobile2'
 }).then(async c => {
   try {
@@ -20,6 +20,16 @@ mysql.createConnection({
       )
     `);
     console.log('Tạo bảng payout_requests thành công!');
+    try {
+      await c.query('ALTER TABLE artists ADD COLUMN banner_clicks INT DEFAULT 0');
+      console.log('Đã thêm cột banner_clicks vào bảng artists!');
+    } catch (err) {
+      if (err.code === 'ER_DUP_FIELDNAME') {
+        console.log('Cột banner_clicks đã có sẵn.');
+      } else {
+        console.error(err);
+      }
+    }
   } catch (err) {
     console.error(err);
   } finally {

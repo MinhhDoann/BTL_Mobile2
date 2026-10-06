@@ -128,7 +128,15 @@ export default function LibraryScreen() {
 
   // Lọc và Sắp xếp danh sách
   const filteredAndSortedItems = useMemo(() => {
-    let result = [...items];
+    // 1. Loại bỏ các mục trùng lặp (ví dụ: duplicate nghệ sĩ hoặc playlist cùng tên)
+    const uniqueMap = new Map<string, LibraryItemData>();
+    items.forEach((item) => {
+      const key = `${item.type}-${item.title.trim().toLowerCase()}`;
+      if (!uniqueMap.has(key)) {
+        uniqueMap.set(key, item);
+      }
+    });
+    let result = Array.from(uniqueMap.values());
 
     // Lọc theo loại danh mục (Filter category)
     if (selectedFilter === 'playlist') {
@@ -170,7 +178,7 @@ export default function LibraryScreen() {
     if (item.type === 'playlist' || item.type === 'single') {
       router.push({ pathname: '/playlist-detail', params: { playlistId: String(item.id) } });
     } else if (item.type === 'artist') {
-      router.push({ pathname: '/search', params: { q: item.title } });
+      router.push({ pathname: '/artist-detail', params: { artistId: String(item.id) } });
     } else {
       router.push({ pathname: '/playlist-detail', params: { playlistId: String(item.id) } });
     }
@@ -390,7 +398,6 @@ export default function LibraryScreen() {
           </View>
         </Modal>
 
-        <MiniPlayer />
         {/* --- FOOTER CHUNG --- */}
         <Footer actions={footerActions} />
       </View>

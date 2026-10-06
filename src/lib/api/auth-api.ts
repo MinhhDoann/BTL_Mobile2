@@ -19,6 +19,20 @@ export async function upgradeToArtist(data: any): Promise<AuthUser> {
   return result.user;
 }
 
+export async function changePassword(oldPassword: string, newPassword: string): Promise<{ ok: boolean; message: string }> {
+  return await apiRequest<{ ok: boolean; message: string }>('/api/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify({ oldPassword, newPassword }),
+  });
+}
+
+export async function forgotPassword(email: string): Promise<{ ok: boolean; message: string; password?: string }> {
+  return await apiRequest<{ ok: boolean; message: string; password?: string }>('/api/auth/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  });
+}
+
 export function setAuthToken(value: string | null) {
   token = value;
   if (Platform.OS === 'web' && typeof window !== 'undefined') {

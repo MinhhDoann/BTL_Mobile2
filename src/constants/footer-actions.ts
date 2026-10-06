@@ -36,14 +36,7 @@ export function useFooterActions(activeTab: string = 'home'): FooterAction[] {
         router.push('/library' as any);
       },
     },
-    {
-      title: 'Đăng ký',
-      icon: 'music.note',
-      active: activeTab === 'register',
-      onPress: () => {
-        // Không làm gì cả theo yêu cầu
-      },
-    },
+
     ...(user?.role === 'artist' || user?.role === 'admin' ? [{
       title: 'Studio',
       icon: 'mic.fill' as any,

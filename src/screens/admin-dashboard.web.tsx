@@ -1,5 +1,7 @@
 import { AdminStatCard } from '@/src/components/admin/AdminStatCard';
 import { AdminDataTable } from '@/src/components/admin/AdminDataTable.web';
+import { AdminComplaintsView } from '@/src/components/admin/AdminComplaintsView.web';
+import { AdminRevenueView } from '@/src/components/admin/AdminRevenueView.web';
 import { ADMIN_ENTITIES } from '@/src/constants/admin-entities';
 import { SongForm } from '@/src/components/admin/SongForm';
 import { AppHeader } from '@/src/components/ui/app-header';
@@ -38,7 +40,7 @@ export default function AdminDashboard() {
   const router = useRouter();
   const { user } = useAuth();
   const { width } = useWindowDimensions();
-  const [section, setSection] = useState<'overview' | 'song' | AdminEntity>('overview');
+  const [section, setSection] = useState<'overview' | 'revenue' | 'song' | 'complaints' | AdminEntity>('overview');
   const [notice, setNotice] = useState('');
   const [loadError, setLoadError] = useState('');
   const [dashboard, setDashboard] = useState<AdminDashboardData | null>(null);
@@ -128,9 +130,9 @@ export default function AdminDashboard() {
           <Text style={styles.account}>{user?.username}</Text>
           <View style={width < 800 ? { flexDirection: 'row', flexWrap: 'wrap' } : undefined}>
             {([
-              ['overview', 'Tổng quan'], ['song', 'Đăng bài hát'], ['users', 'Người dùng'], ['songs', 'Bài hát'], ['artists', 'Nghệ sĩ'], ['albums', 'Album'], ['genres', 'Thể loại'], ['playlists', 'Playlist'], ['payout_requests', 'Yêu cầu rút tiền']
+              ['overview', 'Tổng quan'], ['revenue', 'Báo cáo doanh thu'], ['song', 'Đăng bài hát'], ['users', 'Người dùng'], ['songs', 'Bài hát'], ['artists', 'Nghệ sĩ'], ['albums', 'Album'], ['genres', 'Thể loại'], ['playlists', 'Playlist'], ['payout_requests', 'Yêu cầu rút tiền'], ['complaints', 'Khiếu nại'],
             ] as const).map(([key, label]) => (
-              <Pressable key={key} accessibilityRole="button" accessibilityState={{ selected: section === key }} onPress={() => { setSection(key); setNotice(''); }} style={[styles.navItem, section === key && styles.navActive]}>
+              <Pressable key={key} accessibilityRole="button" accessibilityState={{ selected: section === key }} onPress={() => { setSection(key as any); setNotice(''); }} style={[styles.navItem, section === key && styles.navActive]}>
                 <Text style={styles.navText}>{label}</Text>
               </Pressable>
             ))}
@@ -141,7 +143,7 @@ export default function AdminDashboard() {
         <AppHeader title="Quản trị hệ thống" />
 
         <ScrollView style={styles.content} contentContainerStyle={styles.contentInner}>
-          <Text style={styles.heading}>{section === 'overview' ? 'Bảng điều khiển' : section === 'song' ? 'Đăng bài hát' : ADMIN_ENTITIES[section].title}</Text>
+          <Text style={styles.heading}>{section === 'overview' ? 'Bảng điều khiển' : section === 'revenue' ? 'Báo cáo doanh thu' : section === 'song' ? 'Đăng bài hát' : section === 'complaints' ? 'Quản lý khiếu nại' : ADMIN_ENTITIES[section as AdminEntity]?.title}</Text>
           {notice || loadError ? <Text accessibilityRole="alert" style={styles.notice}>{notice || loadError}</Text> : null}
 
           {section === 'overview' && <View style={styles.statsGrid}>
@@ -151,7 +153,11 @@ export default function AdminDashboard() {
             <AdminStatCard label="Lượt nghe" value={dashboard.stats.total_plays} accent="#38BDF8" />
           </View>}
 
-          {section !== 'overview' && section !== 'song' && <AdminDataTable key={section} entity={section} dashboard={dashboard} currentUserId={user?.user_id} onChanged={loadDashboard} onCreateSong={() => setSection('song')} />}
+          {section === 'revenue' && <AdminRevenueView />}
+
+          {section !== 'overview' && section !== 'revenue' && section !== 'song' && section !== 'complaints' && <AdminDataTable key={section} entity={section as AdminEntity} dashboard={dashboard} currentUserId={user?.user_id} onChanged={loadDashboard} onCreateSong={() => setSection('song')} />}
+
+          {section === 'complaints' && <AdminComplaintsView />}
 
           {section === 'song' && <SongForm
             artists={dashboard.artists}
@@ -162,6 +168,7 @@ export default function AdminDashboard() {
             onToggleGenre={handleToggleGenre}
             onSubmit={handleSubmit}
           />}
+
 
 
 

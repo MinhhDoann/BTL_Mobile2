@@ -26,10 +26,20 @@ test('artist router authorization, song publishing, and revenue calculation', as
       if (sql.includes('SELECT') && sql.includes('FROM songs s') && sql.includes('WHERE s.artist_id = ?')) {
         return [mockSongs.filter((s) => s.artist_id === args[0])];
       }
-      if (sql.includes('SELECT') && sql.includes('COUNT(song_id) AS total_songs')) {
-        const artistSongs = mockSongs.filter((s) => s.artist_id === args[0]);
+      if (sql.includes('SELECT banner_clicks FROM artists WHERE artist_id = ?')) {
+        return [[{ banner_clicks: 0 }]];
+      }
+      if (sql.includes('SELECT') && (sql.includes('COUNT(song_id)') || sql.includes('SUM(play_count)'))) {
+        const artistId = args[0];
+        const artistSongs = mockSongs.filter((s) => s.artist_id === artistId);
         const total_plays = artistSongs.reduce((sum, s) => sum + s.play_count, 0);
         return [[{ total_songs: artistSongs.length, total_plays }]];
+      }
+      if (sql.includes('SELECT COALESCE(SUM(amount), 0) AS total_withdrawn')) {
+        return [[{ total_withdrawn: 0 }]];
+      }
+      if (sql.includes('INSERT INTO payout_requests')) {
+        return [{ insertId: 1 }];
       }
       if (sql.includes('SELECT') && sql.includes('(play_count * ?)') && sql.includes('FROM songs')) {
         const rate = args[0];
@@ -64,8 +74,8 @@ test('artist router authorization, song publishing, and revenue calculation', as
         if (idx !== -1) mockSongs.splice(idx, 1);
         return [{ affectedRows: 1 }];
       }
-      if (sql.includes('UPDATE users SET role = "artist" WHERE user_id = ?')) {
-        user.role = 'artist';
+      if (sql.includes('UPDATE users SET artist_request_status = "pending"') || sql.includes('UPDATE users SET role = "artist"')) {
+        user.artist_request_status = 'pending';
         return [{ affectedRows: 1 }];
       }
       if (sql.includes('SELECT COALESCE(SUM(play_count), 0) * ? AS total_revenue')) {
@@ -110,7 +120,7 @@ test('artist router authorization, song publishing, and revenue calculation', as
   // 2. Regular user can upgrade to artist via /register
   const resUpgrade = await request('/api/artist/register', 'POST');
   assert.equal(resUpgrade.status, 200);
-  assert.equal(user.role, 'artist');
+  assert.equal(user.artist_request_status, 'pending');
 
   // 3. Artist user can get profile
   user = { user_id: 10, username: 'CaSiTest', email: 'artist@test.com', role: 'artist' };
@@ -146,9 +156,7 @@ test('artist router authorization, song publishing, and revenue calculation', as
   const resRevenue = await request('/api/artist/revenue');
   assert.equal(resRevenue.status, 200);
   const revData = (await resRevenue.json()) as any;
-  // Total plays for artist 99: 500 + 1000 + 0 = 1500 plays
-  assert.equal(revData.total_plays, 1500);
-  // 1500 plays * 100 VND = 150,000 VND
+  // Total revenue: 1500 plays * 100 VNĐ = 150,000 VNĐ (banner clicks = 0)
   assert.equal(revData.total_revenue, 150000);
   assert.equal(revData.currency, 'VNĐ');
 

@@ -21,24 +21,26 @@ playlistRouter.get('/library', async (_req: Request, res: Response) => {
 
     const [albums]: [any[], any] = await db.query(`
       SELECT
-        al.album_id AS id,
+        MAX(al.album_id) AS id,
         al.title,
-        COALESCE(ar.name, 'Album') AS subtitle,
+        COALESCE(MAX(ar.name), 'Album') AS subtitle,
         'album' AS type,
-        al.cover_url
+        MAX(al.cover_url) AS cover_url
       FROM albums al
       LEFT JOIN artists ar ON ar.artist_id = al.artist_id
-      ORDER BY al.release_date DESC
+      GROUP BY al.title
+      ORDER BY MAX(al.release_date) DESC
     `);
 
     const [artists]: [any[], any] = await db.query(`
       SELECT
-        ar.artist_id AS id,
+        MAX(ar.artist_id) AS id,
         ar.name AS title,
         'Nghệ sĩ' AS subtitle,
         'artist' AS type,
-        ar.avatar_url AS cover_url
+        MAX(ar.avatar_url) AS cover_url
       FROM artists ar
+      GROUP BY ar.name
       ORDER BY ar.name ASC
     `);
 
@@ -199,5 +201,52 @@ playlistRouter.delete('/playlists/:id', async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Lỗi DELETE /playlists/:id:', error);
     return res.status(500).json({ message: 'Không thể xóa danh sách phát', error: error.message });
+  }
+});
+
+// GET /api/artists/:id - Chi tiết nghệ sĩ cho thư viện
+playlistRouter.get('/artists/:id', async (req: Request, res: Response) => {
+  try {
+    const artistId = Number(req.params.id);
+    if (!artistId || !Number.isFinite(artistId)) {
+      return res.status(400).json({ message: 'ID nghệ sĩ không hợp lệ.' });
+    }
+
+    const [artistRows]: [any[], any] = await db.query(
+      `SELECT artist_id, name, bio, avatar_url, banner_clicks, created_at FROM artists WHERE artist_id = ?`,
+      [artistId]
+    );
+
+    if (!artistRows.length) {
+      return res.status(404).json({ message: 'Không tìm thấy nghệ sĩ.' });
+    }
+
+    const artist = artistRows[0];
+
+    const [songs]: [any[], any] = await db.query(
+      `
+      SELECT
+        s.song_id,
+        s.title,
+        s.duration,
+        s.audio_url,
+        s.cover_url,
+        a.name AS artist_name,
+        s.created_at AS added_at
+      FROM songs s
+      LEFT JOIN artists a ON a.artist_id = s.artist_id
+      WHERE s.artist_id = ?
+      ORDER BY s.play_count DESC, s.created_at DESC
+    `,
+      [artistId]
+    );
+
+    return res.json({
+      artist,
+      songs,
+    });
+  } catch (error: any) {
+    console.error('Lỗi GET /artists/:id:', error);
+    return res.status(500).json({ message: 'Lỗi tải chi tiết nghệ sĩ', error: error.message });
   }
 });

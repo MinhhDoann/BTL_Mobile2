@@ -68,3 +68,81 @@ export type CreateSongRequest = {
   lyrics?: string | null;
   genres: number[];
 };
+
+export type ComplaintItem = {
+  complaint_id: number;
+  reason_type: string;
+  description: string | null;
+  status: 'pending' | 'accepted' | 'rejected';
+  created_at: string;
+  song_id: number;
+  song_title: string;
+  song_cover: string | null;
+  song_duration: number;
+  song_audio: string | null;
+  artist_id: number;
+  artist_name: string;
+  artist_avatar: string | null;
+  artist_bio: string | null;
+  complainant_id: number;
+  complainant_name: string;
+  complainant_email: string;
+};
+
+export type RevenueSummary = {
+  total_users: number;
+  total_artists: number;
+  total_songs: number;
+  total_plays: number;
+  total_banner_clicks: number;
+  song_play_revenue: number;
+  ad_banner_revenue: number;
+  gross_system_revenue: number;
+  platform_ad_share: number;
+  artist_ad_share_gross: number;
+  pit_tax_withheld: number;
+  artist_ad_share_net: number;
+  total_artist_net_earnings: number;
+  platform_net_revenue: number;
+};
+
+export type PayoutSummary = {
+  total_requests: number;
+  approved_amount: number;
+  pending_amount: number;
+  rejected_amount: number;
+};
+
+export type ArtistRevenueStat = {
+  artist_id: number;
+  artist_name: string;
+  avatar_url?: string | null;
+  total_songs: number;
+  total_plays: number;
+  banner_clicks: number;
+  song_revenue: number;
+  ad_gross_revenue: number;
+  artist_ad_share: number;
+  pit_tax: number;
+  artist_net: number;
+  total_withdrawn: number;
+  available_balance: number;
+};
+
+export type SongRevenueStat = {
+  song_id: number;
+  title: string;
+  cover_url?: string | null;
+  play_count: number;
+  song_revenue: number;
+  artist_name: string;
+};
+
+export type AdminRevenueReport = {
+  summary: RevenueSummary;
+  payout_summary: PayoutSummary;
+  artist_breakdown: ArtistRevenueStat[];
+  top_songs: SongRevenueStat[];
+};
+
+

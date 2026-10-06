@@ -39,12 +39,15 @@ export interface ArtistRevenueData {
     artist_id: number;
     name: string;
     avatar_url: string | null;
+    banner_views?: number;
+    banner_clicks?: number;
   };
   rate_per_play: number;
   currency: string;
   total_songs: number;
   total_plays: number;
   tong_tien_qc?: number;
+  tong_tien_bai_hat?: number;
   tien_artist_nhan?: number;
   thue_tncn?: number;
   total_revenue: number;
@@ -137,10 +140,8 @@ export async function upgradeToArtist(): Promise<{ message: string; user: any; a
 // 9. Ghi nhận 1 lượt nghe cho bài hát
 export async function recordSongPlay(songId: number, userId?: number | null): Promise<void> {
   try {
-    const base = process.env.EXPO_PUBLIC_API_URL || await detectApiBase();
-    await fetch(`${base.replace(/\/$/, '')}/api/songs/${songId}/listen`, {
+    await apiRequest(`/api/songs/${songId}/listen`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId }),
     });
   } catch {

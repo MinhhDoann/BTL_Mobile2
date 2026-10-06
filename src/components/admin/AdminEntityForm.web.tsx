@@ -3,6 +3,7 @@ import { fetchAdminRecord, saveAdminRecord } from '@/src/lib/api/admin-api';
 import { AdminDashboardData, AdminEntity, AdminRecord } from '@/src/types/admin';
 import { useEffect, useState } from 'react';
 import { AdminDialog } from './AdminDialog.web';
+import { pickAndUploadImage } from '@/src/lib/upload';
 
 type Props = { entity: AdminEntity; id: number | null; dashboard: AdminDashboardData; onClose: () => void; onSaved: () => Promise<void> };
 export function AdminEntityForm({ entity, id, dashboard, onClose, onSaved }: Props) {
@@ -42,8 +43,24 @@ export function AdminEntityForm({ entity, id, dashboard, onClose, onSaved }: Pro
     } catch (err) { setError(err instanceof Error ? err.message : 'Không thể lưu dữ liệu.'); }
     finally { setBusy(false); }
   }
+
+  const handleUploadImage = async (key: string) => {
+    try {
+      setBusy(true);
+      setError('');
+      const url = await pickAndUploadImage();
+      if (url) {
+        change(key, url);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Lỗi khi tải ảnh lên Cloudinary');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
-    <AdminDialog title={`${id === null ? 'Thêm' : 'Sửa'} ${config.title.toLowerCase()}${id === null ? '' : ` #${id}`}`} busy={busy} onClose={onClose}>
+    <AdminDialog title={ (id === null ? 'Thêm ' : 'Sửa ') + config.title.toLowerCase() + (id === null ? '' : ' #' + id) } busy={busy} onClose={onClose}>
       {loading ? <p role="status">Đang tải dữ liệu...</p> : null}
       {error ? <p role="alert" className="admin-error">{error}</p> : null}
       {!loading && !ready ? <button type="button" onClick={() => setRetry((value) => value + 1)}>Thử lại</button> : null}
@@ -62,11 +79,19 @@ export function AdminEntityForm({ entity, id, dashboard, onClose, onSaved }: Pro
             if (field.options === 'request_status') options = [{ value: 'none', label: 'Không' }, { value: 'pending', label: 'Đang chờ' }, { value: 'approved', label: 'Đã duyệt' }, { value: 'rejected', label: 'Từ chối' }];
             if (field.options === 'artists') options = dashboard.artists.map((artist) => ({ value: String(artist.artist_id), label: `${artist.name} (#${artist.artist_id})` }));
             if (field.options === 'albums') options = dashboard.albums.filter((album) => !values.artist_id || album.artist_id === Number(values.artist_id)).map((album) => ({ value: String(album.album_id), label: `${album.title} (#${album.album_id})` }));
+            
+            const isImageUrl = field.key === 'avatar_url' || field.key === 'cover_url';
+
             return <label className="admin-field" key={field.key}>
               <span>{field.label}{required ? ' *' : ''}</span>
               {field.type === 'select' ? <select value={value} required={required} onChange={(event) => change(field.key, event.target.value)}><option value="">{required ? 'Chọn...' : 'Không chọn'}</option>{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select>
                 : field.type === 'textarea' ? <textarea value={value} rows={4} maxLength={field.max} onChange={(event) => change(field.key, event.target.value)} />
-                  : <input type={field.key === 'email' ? 'email' : field.type || 'text'} value={value} required={required} maxLength={field.max} min={field.type === 'number' ? 1 : undefined} step={field.type === 'number' ? 1 : undefined} autoComplete={field.type === 'password' ? 'new-password' : 'off'} onChange={(event) => change(field.key, event.target.value)} />}
+                  : <div style={{ display: 'flex', gap: 8 }}>
+                      <input style={{ flex: 1 }} type={field.key === 'email' ? 'email' : field.type || 'text'} value={value} required={required} maxLength={field.max} min={field.type === 'number' ? 1 : undefined} step={field.type === 'number' ? 1 : undefined} autoComplete={field.type === 'password' ? 'new-password' : 'off'} onChange={(event) => change(field.key, event.target.value)} />
+                      {isImageUrl && (
+                        <button type="button" onClick={() => handleUploadImage(field.key)} style={{ padding: '0 12px', whiteSpace: 'nowrap', backgroundColor: '#334155' }}>Tải ảnh lên</button>
+                      )}
+                    </div>}
             </label>;
           })}
         </fieldset>

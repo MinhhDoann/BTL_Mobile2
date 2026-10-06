@@ -14,12 +14,14 @@ import {
   requestPayout,
   updateArtistProfile,
   upgradeToArtist,
+  recordSongPlay,
 } from '@/src/lib/api/artist-api';
 import { audioPlayer } from '@/src/lib/audio-player';
 import { getCoverUrl } from '@/src/lib/cover-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { pickAndUploadAudio } from '@/src/lib/upload';
+import { pickAndUploadAudio, pickAndUploadImage } from '@/src/lib/upload';
+import { formatCurrency } from '@/src/lib/format-currency';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -73,8 +75,13 @@ export default function ArtistStudioScreen() {
   const [selectedGenres, setSelectedGenres] = useState<number[]>([1]);
   const [uploading, setUploading] = useState(false);
   const [isPickingFile, setIsPickingFile] = useState(false);
+  const [isPickingCover, setIsPickingCover] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [uploadSuccess, setUploadSuccess] = useState('');
+
+  // Điều khoản & Bản quyền
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
 
   // Modal rút tiền
   const [payoutModalVisible, setPayoutModalVisible] = useState(false);
@@ -144,6 +151,8 @@ export default function ArtistStudioScreen() {
 
   // Xử lý phát bài hát
   const handleTogglePlay = async (song: ArtistSong) => {
+
+
     if (playingSongId === song.song_id) {
       await audioPlayer.togglePlay();
     } else {
@@ -199,6 +208,10 @@ export default function ArtistStudioScreen() {
       setUploadError('Vui lòng nhập đường dẫn Audio URL (link file mp3).');
       return;
     }
+    if (!acceptedTerms) {
+      setUploadError('Vui lòng đọc và tích chọn đồng ý với Điều khoản sử dụng & Chính sách bản quyền trước khi đăng bài hát.');
+      return;
+    }
 
     try {
       setUploading(true);
@@ -211,11 +224,12 @@ export default function ArtistStudioScreen() {
         genres: selectedGenres,
       });
 
-      setUploadSuccess(`Đã đăng bài hát "${uploadTitle.trim()}" thành công!`);
+      setUploadSuccess(`Đã đăng bài hát "${uploadTitle.trim()}" thành công! (Nền tảng là phần mềm trung gian, người đăng tự chịu trách nhiệm bản quyền).`);
       setUploadTitle('');
       setUploadAudioUrl('');
       setUploadCoverUrl('');
       setUploadLyrics('');
+      setAcceptedTerms(false);
 
       // Reload danh sách bài hát và chuyển về tab Bài hát
       await loadData();
@@ -241,6 +255,21 @@ export default function ArtistStudioScreen() {
       setUploadError(err.message || 'Lỗi khi tải file lên Cloudinary');
     } finally {
       setIsPickingFile(false);
+    }
+  };
+
+  const handlePickCover = async () => {
+    try {
+      setIsPickingCover(true);
+      setUploadError('');
+      const url = await pickAndUploadImage();
+      if (url) {
+        setUploadCoverUrl(url);
+      }
+    } catch (err: any) {
+      setUploadError(err.message || 'Lỗi khi tải ảnh bìa lên Cloudinary');
+    } finally {
+      setIsPickingCover(false);
     }
   };
 
@@ -487,17 +516,17 @@ export default function ArtistStudioScreen() {
             {/* Thống kê doanh thu */}
             <View style={styles.statsGrid}>
               <View style={[styles.statCard, { borderLeftColor: '#8B5CF6' }]}>
-                <Text style={styles.statLabel}>Thống kê Quảng cáo</Text>
-                <Text style={styles.statValue}>{(revenueData?.artist?.banner_views || 0).toLocaleString()} views</Text>
-                <Text style={styles.statSub}>{(revenueData?.artist?.banner_clicks || 0).toLocaleString()} clicks</Text>
+                <Text style={styles.statLabel}>Bài hát & Quảng cáo</Text>
+                <Text style={styles.statValue}>{(revenueData?.total_plays || 0).toLocaleString()} lượt nghe</Text>
+                <Text style={styles.statSub}>Quảng cáo: {(revenueData?.artist?.banner_views || 0).toLocaleString()} views</Text>
               </View>
 
               <View style={[styles.statCard, { borderLeftColor: '#10B981' }]}>
-                <Text style={styles.statLabel}>Thực nhận (Sau thuế 10%)</Text>
+                <Text style={styles.statLabel}>Thực nhận (Sau thuế QC)</Text>
                 <Text style={[styles.statValue, { color: '#10B981' }]}>
-                  {(revenueData?.total_revenue || 0).toLocaleString()} VNĐ
+                  {formatCurrency(revenueData?.total_revenue)} VNĐ
                 </Text>
-                <Text style={styles.statSub}>Tổng tiền QC: {(revenueData?.tong_tien_qc || 0).toLocaleString()} VNĐ</Text>
+                <Text style={styles.statSub}>QC: {formatCurrency(revenueData?.tong_tien_qc)}đ | Bài hát: {formatCurrency(revenueData?.tong_tien_bai_hat)}đ</Text>
               </View>
             </View>
 
@@ -506,7 +535,7 @@ export default function ArtistStudioScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={styles.payoutTitle}>Số dư khả dụng</Text>
                 <Text style={styles.payoutBalance}>
-                  {(revenueData?.withdrawable_balance || 0).toLocaleString()} VNĐ
+                  {formatCurrency(revenueData?.withdrawable_balance)} VNĐ
                 </Text>
               </View>
               <TouchableOpacity
@@ -541,7 +570,7 @@ export default function ArtistStudioScreen() {
                     </View>
                     <View style={styles.tableStats}>
                       <Text style={styles.tablePlays}>{item.play_count.toLocaleString()} views</Text>
-                      <Text style={styles.tableRevenue}>+{item.song_revenue.toLocaleString()} VNĐ</Text>
+                      <Text style={styles.tableRevenue}>+{formatCurrency(item.song_revenue)} VNĐ</Text>
                     </View>
                   </View>
                 ))}
@@ -578,7 +607,7 @@ export default function ArtistStudioScreen() {
                       <Text style={[styles.tableRevenue, { color: item.status === 'rejected' ? '#EF4444' : item.status === 'approved' ? '#10B981' : '#F59E0B' }]}>
                         {item.status === 'approved' ? 'Đã duyệt' : item.status === 'rejected' ? 'Từ chối' : 'Đang xử lý'}
                       </Text>
-                      <Text style={styles.tablePlays}>{Number(item.amount).toLocaleString()} VNĐ</Text>
+                      <Text style={styles.tablePlays}>{formatCurrency(item.amount)} VNĐ</Text>
                     </View>
                   </View>
                 ))}
@@ -629,7 +658,7 @@ export default function ArtistStudioScreen() {
                       <View style={styles.badgeMoney}>
                         <Ionicons name="trending-up" size={12} color="#10B981" />
                         <Text style={[styles.badgeText, { color: '#10B981' }]}>
-                          +{song.revenue.toLocaleString()} VNĐ
+                          +{formatCurrency(song.revenue)} VNĐ
                         </Text>
                       </View>
                     </View>
@@ -680,6 +709,13 @@ export default function ArtistStudioScreen() {
               <Text style={styles.uploadDesc}>
                 Bài hát sau khi đăng sẽ hiển thị trực tiếp trên kho nhạc, trang chủ và kênh nghệ sĩ của bạn.
               </Text>
+
+              <View style={styles.copyrightNoticeBox}>
+                <Ionicons name="shield-checkmark" size={20} color="#F59E0B" style={{ marginRight: 8 }} />
+                <Text style={styles.copyrightNoticeText}>
+                  Đây là phần mềm trung gian, người đăng tự chịu trách nhiệm bản quyền
+                </Text>
+              </View>
 
               {uploadError ? (
                 <View style={styles.alertBoxError}>
@@ -748,6 +784,17 @@ export default function ArtistStudioScreen() {
                 value={uploadCoverUrl}
                 onChangeText={setUploadCoverUrl}
               />
+              <TouchableOpacity
+                style={[styles.secondaryButton, { marginTop: 8, marginBottom: 16 }]}
+                onPress={handlePickCover}
+                disabled={isPickingCover}
+              >
+                {isPickingCover ? (
+                  <ActivityIndicator color="#E2E8F0" />
+                ) : (
+                  <Text style={styles.secondaryButtonText}>🖼️ Chọn ảnh bìa từ máy (Upload qua Cloudinary)</Text>
+                )}
+              </TouchableOpacity>
 
               {/* Preview Cover nếu có */}
               {uploadCoverUrl.trim() ? (
@@ -792,6 +839,40 @@ export default function ArtistStudioScreen() {
                 value={uploadLyrics}
                 onChangeText={setUploadLyrics}
               />
+
+              {/* Điều khoản sử dụng & Bản quyền */}
+              <View style={styles.termsAgreementCard}>
+                <TouchableOpacity
+                  style={styles.checkboxRow}
+                  onPress={() => setAcceptedTerms(!acceptedTerms)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name={acceptedTerms ? 'checkbox' : 'square-outline'}
+                    size={24}
+                    color={acceptedTerms ? '#10B981' : '#94A3B8'}
+                  />
+                  <Text style={styles.checkboxLabel}>
+                    Tôi đã đọc và đồng ý với{' '}
+                    <Text
+                      style={styles.termsLinkText}
+                      onPress={() => setShowTermsModal(true)}
+                    >
+                      Điều khoản sử dụng & Chính sách bản quyền
+                    </Text>
+                    {' '}(Xác nhận sở hữu bản quyền hợp pháp, tự chịu 100% trách nhiệm pháp lý).
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.readTermsButton}
+                  onPress={() => setShowTermsModal(true)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="document-text-outline" size={16} color="#A78BFA" />
+                  <Text style={styles.readTermsButtonText}>Đọc chi tiết Điều khoản sử dụng & Bản quyền</Text>
+                </TouchableOpacity>
+              </View>
 
               {/* Nút gửi */}
               <TouchableOpacity
@@ -947,6 +1028,91 @@ export default function ArtistStudioScreen() {
                 <Text style={styles.primaryButtonText}>Lưu thay đổi</Text>
               )}
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MODAL ĐIỀU KHOẢN SỬ DỤNG VÀ CHÍNH SÁCH BẢN QUYỀN */}
+      <Modal visible={showTermsModal} animationType="slide" transparent={true} onRequestClose={() => setShowTermsModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalBox, { maxWidth: 650, maxHeight: '90%' }]}>
+            <View style={styles.modalHeader}>
+              <View style={{ flex: 1, paddingRight: 10 }}>
+                <Text style={styles.modalTitle}>ĐIỀU KHOẢN SỬ DỤNG & CHÍNH SÁCH BẢN QUYỀN</Text>
+                <Text style={{ color: '#94A3B8', fontSize: 12, marginTop: 2 }}>
+                  Nền tảng Mobile 2 (Terms of Service)
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowTermsModal(false)} style={{ padding: 4 }}>
+                <Ionicons name="close-circle-outline" size={26} color="#94A3B8" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ marginTop: 10, paddingRight: 4 }} showsVerticalScrollIndicator={true}>
+              <View style={styles.tosCardSection}>
+                <Text style={styles.tosSectionHeader}>1. Vai trò của nền tảng Mobile 2</Text>
+                <Text style={styles.tosParagraph}>
+                  Ứng dụng Mobile 2 hoạt động với tư cách là một nền tảng trung gian cung cấp dịch vụ lưu trữ (Hosting Provider). Chúng tôi cung cấp không gian để các nghệ sĩ và người dùng tự do đăng tải, chia sẻ tác phẩm âm nhạc của mình tới cộng đồng. Mobile 2 không trực tiếp sở hữu, không sản xuất và không chịu trách nhiệm phân phối các bản ghi âm trái phép.
+                </Text>
+
+                <Text style={styles.tosSectionHeader}>2. Trách nhiệm và Cam kết của Người đăng tải (Uploader)</Text>
+                <Text style={styles.tosParagraph}>
+                  Bằng việc tải lên (upload) bất kỳ tệp âm thanh nào lên hệ thống của Mobile 2, bạn (người dùng/nghệ sĩ) phải tích chọn và đồng ý với các cam kết sau:
+                </Text>
+                <View style={styles.tosBulletItem}>
+                  <Text style={styles.tosBulletTitle}>• Quyền sở hữu hợp pháp:</Text>
+                  <Text style={styles.tosBulletText}>
+                    Tác phẩm (bao gồm phần nhạc, lời bài hát, bản phối, bản thu âm) do chính bạn sáng tác, sở hữu bản quyền hoặc đã được cấp phép hợp pháp để sao chép, phân phối và khai thác thương mại.
+                  </Text>
+                </View>
+                <View style={styles.tosBulletItem}>
+                  <Text style={styles.tosBulletTitle}>• Chịu trách nhiệm toàn bộ:</Text>
+                  <Text style={styles.tosBulletText}>
+                    Người đăng tải phải chịu trách nhiệm pháp lý 100% đối với nội dung của mình. Mobile 2 được miễn trừ mọi trách nhiệm liên đới trong trường hợp phát sinh tranh chấp pháp lý, khiếu nại bản quyền, hoặc yêu cầu bồi thường từ bất kỳ bên thứ ba nào.
+                  </Text>
+                </View>
+
+                <Text style={styles.tosSectionHeader}>3. Tuyên bố Miễn trừ Trách nhiệm</Text>
+                <Text style={styles.tosParagraph}>
+                  Nền tảng Mobile 2 không có nghĩa vụ kiểm duyệt trước toàn bộ nội dung do người dùng tạo ra (User Generated Content). Việc bài hát được hệ thống cho phép hiển thị không đồng nghĩa với việc Mobile 2 xác nhận tính hợp pháp về bản quyền của bài hát đó.
+                </Text>
+
+                <Text style={styles.tosSectionHeader}>4. Chính sách Xử lý Vi phạm Bản quyền (DMCA / Notice-and-Takedown)</Text>
+                <Text style={styles.tosParagraph}>
+                  Để bảo vệ quyền sở hữu trí tuệ hợp pháp và tuân thủ các quy định hiện hành, Mobile 2 áp dụng quy trình gỡ bỏ nội dung vi phạm như sau:
+                </Text>
+                <View style={styles.tosBulletItem}>
+                  <Text style={styles.tosBulletTitle}>• Tiếp nhận khiếu nại:</Text>
+                  <Text style={styles.tosBulletText}>
+                    Nếu chủ sở hữu bản quyền phát hiện tác phẩm của mình bị đăng tải trái phép trên Mobile 2, vui lòng gửi thông báo kèm bằng chứng sở hữu đến bộ phận hỗ trợ của chúng tôi.
+                  </Text>
+                </View>
+                <View style={styles.tosBulletItem}>
+                  <Text style={styles.tosBulletTitle}>• Xử lý và Gỡ bỏ:</Text>
+                  <Text style={styles.tosBulletText}>
+                    Ngay khi nhận được báo cáo khiếu nại hợp lệ, quản trị viên (Admin) của Mobile 2 có toàn quyền ẩn hoặc xóa bài hát vi phạm ngay lập tức khỏi hệ thống để miễn trừ trách nhiệm pháp lý liên đới.
+                  </Text>
+                </View>
+                <View style={styles.tosBulletItem}>
+                  <Text style={styles.tosBulletTitle}>• Xử lý tài khoản vi phạm:</Text>
+                  <Text style={styles.tosBulletText}>
+                    Tài khoản cố tình đăng tải nhạc lậu hoặc bị báo cáo vi phạm nhiều lần sẽ bị khóa vĩnh viễn và tước bỏ mọi quyền lợi trên hệ thống.
+                  </Text>
+                </View>
+              </View>
+            </ScrollView>
+
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
+              <TouchableOpacity
+                style={[styles.primaryButton, { flex: 1, marginTop: 0, backgroundColor: '#10B981' }]}
+                onPress={() => {
+                  setAcceptedTerms(true);
+                  setShowTermsModal(false);
+                }}
+              >
+                <Text style={styles.primaryButtonText}>Tôi đã hiểu & Đồng ý Điều khoản</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -1549,5 +1715,93 @@ const styles = StyleSheet.create({
     color: '#F8FAFC',
     fontSize: 18,
     fontWeight: '700',
+  },
+  copyrightNoticeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    borderColor: 'rgba(245, 158, 11, 0.4)',
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    marginVertical: 12,
+  },
+  copyrightNoticeText: {
+    color: '#FBBF24',
+    fontSize: 13,
+    fontWeight: '600',
+    flex: 1,
+  },
+  termsAgreementCard: {
+    backgroundColor: '#0F172A',
+    borderColor: '#334155',
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 14,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  checkboxLabel: {
+    color: '#E2E8F0',
+    fontSize: 13,
+    lineHeight: 19,
+    flex: 1,
+  },
+  termsLinkText: {
+    color: '#38BDF8',
+    fontWeight: 'bold',
+    textDecorationLine: 'underline',
+  },
+  readTermsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#1E293B',
+  },
+  readTermsButtonText: {
+    color: '#A78BFA',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  tosCardSection: {
+    backgroundColor: '#0F172A',
+    padding: 12,
+    borderRadius: 10,
+  },
+  tosSectionHeader: {
+    color: '#38BDF8',
+    fontWeight: 'bold',
+    fontSize: 14,
+    marginTop: 12,
+    marginBottom: 6,
+  },
+  tosParagraph: {
+    color: '#CBD5E1',
+    fontSize: 13,
+    lineHeight: 19,
+    marginBottom: 8,
+  },
+  tosBulletItem: {
+    marginBottom: 8,
+    paddingLeft: 8,
+  },
+  tosBulletTitle: {
+    color: '#F59E0B',
+    fontWeight: '600',
+    fontSize: 13,
+    marginBottom: 2,
+  },
+  tosBulletText: {
+    color: '#94A3B8',
+    fontSize: 13,
+    lineHeight: 18,
   },
 });

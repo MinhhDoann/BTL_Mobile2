@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, usePathname } from 'expo-router';
 import { useAudioPlayer } from '@/src/hooks/use-audio-player';
 import { audioPlayer } from '@/src/lib/audio-player';
 import { getCoverUrl } from '@/src/lib/cover-image';
@@ -8,8 +8,9 @@ import { getCoverUrl } from '@/src/lib/cover-image';
 export function MiniPlayer() {
   const router = useRouter();
   const playerState = useAudioPlayer();
+  const pathname = usePathname();
 
-  if (!playerState.songId) return null;
+  if (!playerState.songId || pathname === '/song-detail') return null;
 
   const handleTogglePlay = async () => {
     await audioPlayer.togglePlay();
@@ -67,7 +68,7 @@ export function MiniPlayer() {
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    bottom: 72, // Adjust based on your tab bar / footer height
+    bottom: 72,
     left: 8,
     right: 8,
     backgroundColor: '#1E293B',

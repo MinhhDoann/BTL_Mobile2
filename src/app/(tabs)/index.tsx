@@ -123,7 +123,7 @@ export default function HomeScreen() {
       songId: song.song_id,
       audioUrl: song.audio_url,
       title: song.title,
-      artistName: song.artist_name,
+      artist: song.artist_name,
       coverUrl: song.cover_url,
     });
     router.navigate({ pathname: '/song-detail', params: { songId: String(song.song_id) } });
@@ -308,7 +308,6 @@ export default function HomeScreen() {
           )}
         </View>
 
-        <MiniPlayer />
         <Footer actions={footerActions} />
       </View>
     </SafeAreaView>

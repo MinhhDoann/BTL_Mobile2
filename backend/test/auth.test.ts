@@ -96,3 +96,62 @@ test('login, database role enforcement, expiry, and logout', async (t) => {
   }
   assert.equal((await request('/api/auth/login', null, { email: 'missing@example.test', password: 'wrong' })).status, 429);
 });
+
+test('change-password requires old password and forgot-password returns old password via email', async (t) => {
+  const users = [
+    { user_id: 5, username: 'testuser', email: 'test@example.com', role: 'user', password_hash: 'oldpass123' },
+  ];
+  const db = {
+    query: async (sql: string, args: any[] = []) => {
+      if (sql.includes('UPDATE users SET password_hash = ?')) {
+        users[0].password_hash = args[0];
+        return [{ affectedRows: 1 }];
+      }
+      return [users.filter((user) => (sql.includes('WHERE email') ? user.email === args[0] : user.user_id === args[0]))];
+    },
+  };
+
+  const auth = createAuth(db as any);
+  const app = express();
+  app.use(express.json());
+  app.use('/api/auth', auth.router);
+
+  const server = app.listen(0, '127.0.0.1');
+  await new Promise((resolve) => server.once('listening', resolve));
+  t.after(() => {
+    auth.close();
+    server.closeAllConnections();
+    server.close();
+  });
+
+  const address = server.address() as AddressInfo;
+  const base = `http://127.0.0.1:${address.port}`;
+  const request = (path: string, token?: string | null, body?: any) =>
+    fetch(base + path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      ...(body ? { body: JSON.stringify(body) } : {}),
+    });
+
+  // Login
+  const loginRes = await (await request('/api/auth/login', null, { email: 'test@example.com', password: 'oldpass123' })).json() as any;
+  const token = loginRes.token;
+
+  // 1. Change password with wrong old password fails
+  const resWrongOld = await request('/api/auth/change-password', token, { oldPassword: 'wrongoldpassword', newPassword: 'newpass456' });
+  assert.equal(resWrongOld.status, 400);
+
+  // 2. Change password with correct old password succeeds
+  const resOkChange = await request('/api/auth/change-password', token, { oldPassword: 'oldpass123', newPassword: 'newpass456' });
+  assert.equal(resOkChange.status, 200);
+  assert.equal(users[0].password_hash, 'newpass456');
+
+  // 3. Forgot password with non-existent email returns 404
+  const resForgotNotFound = await request('/api/auth/forgot-password', null, { email: 'nonexistent@example.com' });
+  assert.equal(resForgotNotFound.status, 404);
+
+  // 4. Forgot password with existing email returns old/current password
+  const resForgotOk = await (await request('/api/auth/forgot-password', null, { email: 'test@example.com' })).json() as any;
+  assert.equal(resForgotOk.ok, true);
+  assert.equal(resForgotOk.password, 'newpass456');
+});

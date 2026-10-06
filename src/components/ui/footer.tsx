@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleProp, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { IconSymbol } from './icon-symbol';
+import { useAudioPlayer } from '@/src/hooks/use-audio-player';
 
 export interface FooterAction {
   title: string;
@@ -43,9 +44,10 @@ export function FooterButton({ title, onPress, variant = 'secondary', disabled, 
 
 export function Footer({ actions, style }: FooterProps) {
   const insets = useSafeAreaInsets();
+  const playerState = useAudioPlayer();
 
   return (
-    <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 6) }, style]}>
+    <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 6), paddingTop: playerState.songId ? 76 : 6 }, style]}>
       {actions.map((action, index) => (
         <View key={index} style={styles.tabItem}>
           <FooterButton {...action} />
@@ -60,7 +62,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: 8,
-    paddingTop: 6,
+    // paddingTop controlled dynamically
     backgroundColor: '#0B1120',
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: '#1E293B',

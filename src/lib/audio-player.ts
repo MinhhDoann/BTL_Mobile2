@@ -7,6 +7,7 @@ export type AudioTrack = {
   title?: string;
   coverUrl?: string | null;
   artist?: string;
+  userId?: number | null;
 };
 
 export type PlayerState = {
@@ -34,10 +35,16 @@ class AudioPlayerService {
     positionMs: 0,
     durationMs: 0,
     title: undefined,
-    artistName: undefined,
+    artist: undefined,
     coverUrl: undefined,
   };
   private loading: Promise<void> | null = null;
+  private hasRecordedPlayForSongId: number | null = null;
+  private currentUserId: number | null = null;
+
+  setUserId(id: number | null | undefined) {
+    this.currentUserId = id ?? null;
+  }
 
   private emit() {
     const snapshot = this.getState();
@@ -97,7 +104,7 @@ class AudioPlayerService {
         safeUrl = 'https://interactive-examples.mdn.mozilla.net/media/cc0-audio/t-rex-roar.mp3';
       }
 
-      if (this.sound && this.activeSongId === track.songId) {
+      if (this.sound && Number(this.activeSongId) === Number(track.songId)) {
         const status = await this.sound.getStatusAsync();
         if (!status.isLoaded) return;
 
@@ -124,14 +131,19 @@ class AudioPlayerService {
             if (!status.isLoaded) return;
             if (playbackVersion !== this.playbackVersion) return;
             this.setState({
-              songId: track.songId,
+              songId: Number(track.songId),
               positionMs: status.positionMillis ?? 0,
               durationMs: status.durationMillis ?? 0,
               isPlaying: status.isPlaying,
               title: track.title ?? this.state.title,
-              artistName: track.artistName ?? this.state.artistName,
+              artist: track.artist ?? this.state.artist,
               coverUrl: track.coverUrl ?? this.state.coverUrl,
             });
+
+            if (status.isPlaying && this.hasRecordedPlayForSongId !== Number(track.songId)) {
+              this.hasRecordedPlayForSongId = Number(track.songId);
+              void recordSongPlay(Number(track.songId), this.currentUserId);
+            }
           }
         );
 
@@ -141,11 +153,11 @@ class AudioPlayerService {
         }
 
         this.sound = newSound;
-        this.activeSongId = track.songId;
-        void recordSongPlay(track.songId);
+        this.activeSongId = Number(track.songId);
+
         if (initialStatus.isLoaded) {
           this.setState({
-            songId: track.songId,
+            songId: Number(track.songId),
             isPlaying: initialStatus.isPlaying,
             positionMs: initialStatus.positionMillis ?? 0,
             durationMs: initialStatus.durationMillis ?? 0,
@@ -153,6 +165,11 @@ class AudioPlayerService {
             coverUrl: track.coverUrl,
             artist: track.artist,
           });
+
+          if (initialStatus.isPlaying && this.hasRecordedPlayForSongId !== Number(track.songId)) {
+            this.hasRecordedPlayForSongId = Number(track.songId);
+            void recordSongPlay(Number(track.songId), this.currentUserId);
+          }
         }
       } catch (error) {
         console.error('Playback error:', error);

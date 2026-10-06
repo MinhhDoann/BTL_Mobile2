@@ -3,6 +3,7 @@ import {
   AdminEntity,
   AdminPage,
   AdminRecord,
+  AdminRevenueReport,
   CreateSongInput,
   CreateSongRequest,
   DeletePreview,
@@ -76,3 +77,20 @@ export async function createGenre(payload: { name: string }) {
     body: JSON.stringify(payload),
   });
 }
+
+export async function fetchAdminComplaints() {
+  return request<{ complaints: any[] }>('/api/admin/complaints');
+}
+
+export async function updateComplaintStatus(complaintId: number, status: 'accepted' | 'rejected') {
+  return request<{ ok: boolean; message: string }>(`/api/admin/complaints/${complaintId}/status`, {
+    method: 'PUT',
+    body: JSON.stringify({ status }),
+  });
+}
+
+export async function fetchAdminRevenueReport() {
+  return request<AdminRevenueReport>('/api/admin/revenue/report');
+}
+
+
