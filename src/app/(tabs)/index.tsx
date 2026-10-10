@@ -5,7 +5,7 @@ import { useFooterActions } from '@/src/constants/footer-actions';
 import { detectApiBase } from '@/src/lib/api/detectApi';
 import { audioPlayer } from '@/src/lib/audio-player';
 import { getCoverUrl } from '@/src/lib/cover-image';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -54,10 +54,12 @@ export default function HomeScreen() {
     }
   }, []);
 
-  // Gọi API lấy danh sách thể loại và bài hát khi mở màn hình
-  useEffect(() => {
-    loadHomeData();
-  }, [loadHomeData]);
+  // Gọi API lấy danh sách thể loại và bài hát khi mở màn hình hoặc khi focus lại màn hình
+  useFocusEffect(
+    useCallback(() => {
+      loadHomeData();
+    }, [loadHomeData])
+  );
 
   const fetchDataFromMySQL = async (base: string) => {
     const url = `${base}/api/home-data`;

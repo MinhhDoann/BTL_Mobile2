@@ -129,7 +129,7 @@ CREATE TABLE IF NOT EXISTS complaints (
     user_id INT NOT NULL,
     song_id INT NOT NULL,
     reason_type VARCHAR(50) NOT NULL DEFAULT 'Bản quyền',
-    description TEXT NULL,
+    description TEXT NULL,  
     status ENUM('pending', 'accepted', 'rejected') DEFAULT 'pending',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,

@@ -130,17 +130,26 @@ class AudioPlayerService {
           (status: any) => {
             if (!status.isLoaded) return;
             if (playbackVersion !== this.playbackVersion) return;
+            const currentPos = status.positionMillis ?? 0;
+            const duration = status.durationMillis ?? 0;
+
             this.setState({
               songId: Number(track.songId),
-              positionMs: status.positionMillis ?? 0,
-              durationMs: status.durationMillis ?? 0,
+              positionMs: currentPos,
+              durationMs: duration,
               isPlaying: status.isPlaying,
               title: track.title ?? this.state.title,
               artist: track.artist ?? this.state.artist,
               coverUrl: track.coverUrl ?? this.state.coverUrl,
             });
 
-            if (status.isPlaying && this.hasRecordedPlayForSongId !== Number(track.songId)) {
+            // Chỉ ghi nhận 1 lượt nghe khi bài hát phát từ 30 giây trở lên (hoặc >= 80% đối với bài ngắn < 30s)
+            const thresholdMs = duration > 0 && duration < 30000 ? duration * 0.8 : 30000;
+            if (
+              status.isPlaying &&
+              currentPos >= thresholdMs &&
+              this.hasRecordedPlayForSongId !== Number(track.songId)
+            ) {
               this.hasRecordedPlayForSongId = Number(track.songId);
               void recordSongPlay(Number(track.songId), this.currentUserId);
             }
@@ -156,17 +165,25 @@ class AudioPlayerService {
         this.activeSongId = Number(track.songId);
 
         if (initialStatus.isLoaded) {
+          const currentPos = initialStatus.positionMillis ?? 0;
+          const duration = initialStatus.durationMillis ?? 0;
+
           this.setState({
             songId: Number(track.songId),
             isPlaying: initialStatus.isPlaying,
-            positionMs: initialStatus.positionMillis ?? 0,
-            durationMs: initialStatus.durationMillis ?? 0,
+            positionMs: currentPos,
+            durationMs: duration,
             title: track.title,
             coverUrl: track.coverUrl,
             artist: track.artist,
           });
 
-          if (initialStatus.isPlaying && this.hasRecordedPlayForSongId !== Number(track.songId)) {
+          const thresholdMs = duration > 0 && duration < 30000 ? duration * 0.8 : 30000;
+          if (
+            initialStatus.isPlaying &&
+            currentPos >= thresholdMs &&
+            this.hasRecordedPlayForSongId !== Number(track.songId)
+          ) {
             this.hasRecordedPlayForSongId = Number(track.songId);
             void recordSongPlay(Number(track.songId), this.currentUserId);
           }

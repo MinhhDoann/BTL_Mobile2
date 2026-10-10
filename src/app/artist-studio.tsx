@@ -518,7 +518,7 @@ export default function ArtistStudioScreen() {
               <View style={[styles.statCard, { borderLeftColor: '#8B5CF6' }]}>
                 <Text style={styles.statLabel}>Bài hát & Quảng cáo</Text>
                 <Text style={styles.statValue}>{(revenueData?.total_plays || 0).toLocaleString()} lượt nghe</Text>
-                <Text style={styles.statSub}>Quảng cáo: {(revenueData?.artist?.banner_views || 0).toLocaleString()} views</Text>
+                <Text style={styles.statSub}>Quảng cáo: {(revenueData?.artist?.banner_clicks || 0).toLocaleString()} lượt click</Text>
               </View>
 
               <View style={[styles.statCard, { borderLeftColor: '#10B981' }]}>

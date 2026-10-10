@@ -1,16 +1,17 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  ActivityIndicator,
-  ScrollView,
-  Image,
-} from 'react-native';
-import { ComplaintItem } from '@/src/types/admin';
 import { fetchAdminComplaints, updateComplaintStatus } from '@/src/lib/api/admin-api';
 import { getCoverUrl } from '@/src/lib/cover-image';
+import { ComplaintItem } from '@/src/types/admin';
+import { Ionicons } from '@expo/vector-icons';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Image,
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 export function AdminComplaintsView() {
   const [complaints, setComplaints] = useState<ComplaintItem[]>([]);
@@ -18,6 +19,19 @@ export function AdminComplaintsView() {
   const [filter, setFilter] = useState<'all' | 'pending' | 'accepted' | 'rejected'>('all');
   const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+
+  // Modal xác nhận tiếp nhận / từ chối
+  const [confirmModal, setConfirmModal] = useState<{
+    visible: boolean;
+    complaintId: number | null;
+    status: 'accepted' | 'rejected' | null;
+    songTitle: string;
+  }>({
+    visible: false,
+    complaintId: null,
+    status: null,
+    songTitle: '',
+  });
 
   const loadComplaints = useCallback(async () => {
     try {
@@ -230,42 +244,48 @@ export function AdminComplaintsView() {
                   </View>
                 </View>
 
-                {/* Bottom Action Row: Nút Tiếp nhận & Từ chối */}
+                {/* Action Buttons */}
                 <View style={styles.actionRow}>
                   <Pressable
-                    onPress={() => handleAction(item.complaint_id, 'accepted')}
                     disabled={updatingId === item.complaint_id || isAccepted}
+                    onPress={() =>
+                      setConfirmModal({
+                        visible: true,
+                        complaintId: item.complaint_id,
+                        status: 'accepted',
+                        songTitle: item.song_title,
+                      })
+                    }
                     style={[
                       styles.actionBtn,
                       styles.btnAccept,
-                      (isAccepted || updatingId === item.complaint_id) && styles.btnDisabled,
+                      (updatingId === item.complaint_id || isAccepted) && styles.btnDisabled,
                     ]}
                   >
-                    {updatingId === item.complaint_id ? (
-                      <ActivityIndicator size="small" color="#FFFFFF" />
-                    ) : (
-                      <Text style={styles.btnTextAccept}>
-                        {isAccepted ? '✓ Đã tiếp nhận' : '✓ Tiếp nhận'}
-                      </Text>
-                    )}
+                    <Text style={styles.btnTextAccept}>
+                      {isAccepted ? '✓ Đã tiếp nhận' : 'Tiếp nhận'}
+                    </Text>
                   </Pressable>
 
                   <Pressable
-                    onPress={() => handleAction(item.complaint_id, 'rejected')}
                     disabled={updatingId === item.complaint_id || isRejected}
+                    onPress={() =>
+                      setConfirmModal({
+                        visible: true,
+                        complaintId: item.complaint_id,
+                        status: 'rejected',
+                        songTitle: item.song_title,
+                      })
+                    }
                     style={[
                       styles.actionBtn,
                       styles.btnReject,
-                      (isRejected || updatingId === item.complaint_id) && styles.btnDisabled,
+                      (updatingId === item.complaint_id || isRejected) && styles.btnDisabled,
                     ]}
                   >
-                    {updatingId === item.complaint_id ? (
-                      <ActivityIndicator size="small" color="#FFFFFF" />
-                    ) : (
-                      <Text style={styles.btnTextReject}>
-                        {isRejected ? '✕ Đã từ chối' : '✕ Từ chối'}
-                      </Text>
-                    )}
+                    <Text style={styles.btnTextReject}>
+                      {isRejected ? '✓ Đã từ chối' : 'Từ chối'}
+                    </Text>
                   </Pressable>
                 </View>
               </View>
@@ -273,6 +293,81 @@ export function AdminComplaintsView() {
           })}
         </View>
       )}
+
+      {/* MODAL XÁC NHẬN TIẾP NHẬN / TỪ CHỐI KHIẾU NẠI */}
+      <Modal
+        visible={confirmModal.visible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setConfirmModal((prev) => ({ ...prev, visible: false }))}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {confirmModal.status === 'accepted'
+                  ? '⚠️ XÁC NHẬN TIẾP NHẬN KHIẾU NẠI'
+                  : '❌ XÁC NHẬN TỪ CHỐI KHIẾU NẠI'}
+              </Text>
+              <Pressable onPress={() => setConfirmModal((prev) => ({ ...prev, visible: false }))}>
+                <Ionicons name="close" size={24} color="#94A3B8" />
+              </Pressable>
+            </View>
+
+            {confirmModal.status === 'accepted' ? (
+              <View style={{ marginVertical: 12 }}>
+                <Text style={styles.modalMessage}>
+                  Bạn có chắc chắn muốn <Text style={{ color: '#10B981', fontWeight: 'bold' }}>TIẾP NHẬN</Text> khiếu nại này đối với bài hát <Text style={{ color: '#F8FAFC', fontWeight: 'bold' }}>"{confirmModal.songTitle}"</Text>?
+                </Text>
+
+                <View style={styles.infoAlertBox}>
+                  <Text style={styles.infoAlertTitle}>ℹ️ Quản lý Bài hát:</Text>
+                  <Text style={styles.infoAlertText}>
+                    • Sau khi xác nhận tiếp nhận khiếu nại, Admin có thể chuyển sang mục <Text style={{ color: '#38BDF8', fontWeight: 'bold' }}>Quản lý Bài hát</Text> để chủ động xóa bài hát thủ công nếu cần.
+                  </Text>
+                </View>
+              </View>
+            ) : (
+              <View style={{ marginVertical: 12 }}>
+                <Text style={styles.modalMessage}>
+                  Bạn có chắc chắn muốn <Text style={{ color: '#EF4444', fontWeight: 'bold' }}>TỪ CHỐI</Text> khiếu nại đối với bài hát <Text style={{ color: '#F8FAFC', fontWeight: 'bold' }}>"{confirmModal.songTitle}"</Text>?
+                </Text>
+                <Text style={styles.modalSubMessage}>
+                  Bài hát sẽ vẫn tiếp tục hiển thị bình thường trên ứng dụng.
+                </Text>
+              </View>
+            )}
+
+            <View style={styles.modalBtnRow}>
+              <Pressable
+                style={styles.modalCancelBtn}
+                onPress={() => setConfirmModal((prev) => ({ ...prev, visible: false }))}
+              >
+                <Text style={styles.modalCancelBtnText}>Hủy bỏ</Text>
+              </Pressable>
+
+              <Pressable
+                style={[
+                  styles.modalConfirmBtn,
+                  confirmModal.status === 'accepted' ? { backgroundColor: '#10B981' } : { backgroundColor: '#EF4444' },
+                ]}
+                onPress={() => {
+                  if (confirmModal.complaintId && confirmModal.status) {
+                    const cId = confirmModal.complaintId;
+                    const st = confirmModal.status;
+                    setConfirmModal((prev) => ({ ...prev, visible: false }));
+                    handleAction(cId, st);
+                  }
+                }}
+              >
+                <Text style={styles.modalConfirmBtnText}>
+                  {confirmModal.status === 'accepted' ? 'Xác nhận Tiếp nhận' : 'Xác nhận Từ chối'}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -312,11 +407,11 @@ const styles = StyleSheet.create({
   },
   filterTab: {
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 10,
-    backgroundColor: '#1E293B',
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#0F172A',
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#1E293B',
   },
   filterTabActive: {
     backgroundColor: '#4338CA',
@@ -324,45 +419,43 @@ const styles = StyleSheet.create({
   },
   filterTabText: {
     color: '#94A3B8',
-    fontWeight: '600',
     fontSize: 13,
+    fontWeight: '600',
   },
   filterTabTextActive: {
     color: '#FFFFFF',
+    fontWeight: '700',
   },
   emptyWrap: {
-    padding: 48,
-    backgroundColor: '#111827',
+    padding: 36,
+    backgroundColor: '#0F172A',
     borderRadius: 16,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#1F2937',
+    borderColor: '#1E293B',
   },
   emptyText: {
     color: '#94A3B8',
-    fontSize: 15,
+    fontSize: 14,
   },
   listContainer: {
-    gap: 20,
+    gap: 16,
   },
   card: {
-    backgroundColor: '#111827',
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#1F2937',
+    backgroundColor: '#0F172A',
+    borderRadius: 16,
     padding: 20,
-    shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
+    borderWidth: 1,
+    borderColor: '#1E293B',
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingBottom: 14,
     marginBottom: 16,
+    paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#1F2937',
+    borderBottomColor: '#1E293B',
   },
   headerTitleWrap: {
     flexDirection: 'row',
@@ -370,168 +463,254 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   complaintIdText: {
-    color: '#818CF8',
+    color: '#A5B4FC',
+    fontSize: 14,
     fontWeight: '800',
-    fontSize: 16,
   },
   dateText: {
     color: '#64748B',
-    fontSize: 13,
+    fontSize: 12,
   },
   statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
   },
   badgePending: {
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
-    borderWidth: 1,
-    borderColor: '#F59E0B',
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+    borderColor: 'rgba(245, 158, 11, 0.3)',
   },
   badgeAccepted: {
-    backgroundColor: 'rgba(34, 197, 94, 0.15)',
-    borderWidth: 1,
-    borderColor: '#22C55E',
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    borderColor: 'rgba(16, 185, 129, 0.3)',
   },
   badgeRejected: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    borderWidth: 1,
-    borderColor: '#EF4444',
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderColor: 'rgba(239, 68, 68, 0.3)',
   },
   statusText: {
     fontSize: 12,
     fontWeight: '700',
   },
-  textPending: { color: '#FBBF24' },
-  textAccepted: { color: '#4ADE80' },
-  textRejected: { color: '#F87171' },
+  textPending: { color: '#F59E0B' },
+  textAccepted: { color: '#10B981' },
+  textRejected: { color: '#EF4444' },
 
   gridContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 16,
-    marginBottom: 16,
+    marginTop: 8,
   },
   infoBox: {
     flex: 1,
     minWidth: 240,
-    backgroundColor: '#0F172A',
-    borderRadius: 14,
+    backgroundColor: '#1E293B',
     padding: 14,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#1E293B',
+    borderColor: '#334155',
   },
   boxTitle: {
     color: '#94A3B8',
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.8,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.5,
     marginBottom: 10,
   },
   mediaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
   },
   coverThumb: {
-    width: 52,
-    height: 52,
-    borderRadius: 10,
-    backgroundColor: '#1E293B',
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+    marginRight: 12,
+    backgroundColor: '#0F172A',
   },
   avatarThumb: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#1E293B',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    marginRight: 12,
+    backgroundColor: '#0F172A',
   },
   mediaMeta: {
     flex: 1,
   },
   songTitle: {
-    color: '#FFFFFF',
-    fontWeight: '700',
+    color: '#F8FAFC',
     fontSize: 14,
-    marginBottom: 2,
+    fontWeight: '700',
   },
   artistName: {
-    color: '#FFFFFF',
-    fontWeight: '700',
+    color: '#F8FAFC',
     fontSize: 14,
-    marginBottom: 2,
-  },
-  metaSub: {
-    color: '#64748B',
-    fontSize: 12,
-    marginTop: 1,
+    fontWeight: '700',
   },
   userMeta: {
-    gap: 3,
+    gap: 4,
   },
   userName: {
-    color: '#FFFFFF',
-    fontWeight: '700',
+    color: '#F8FAFC',
     fontSize: 14,
+    fontWeight: '700',
   },
   userEmail: {
-    color: '#38BDF8',
+    color: '#CBD5E1',
     fontSize: 13,
   },
+  metaSub: {
+    color: '#94A3B8',
+    fontSize: 12,
+    marginTop: 2,
+  },
   reasonBadge: {
-    alignSelf: 'flex-start',
     backgroundColor: 'rgba(99, 102, 241, 0.15)',
+    borderColor: '#6366F1',
+    borderWidth: 1,
+    borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 6,
+    alignSelf: 'flex-start',
     marginBottom: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(99, 102, 241, 0.3)',
   },
   reasonBadgeText: {
     color: '#A5B4FC',
-    fontWeight: '700',
     fontSize: 12,
+    fontWeight: '700',
   },
   descText: {
     color: '#E2E8F0',
     fontSize: 13,
-    lineHeight: 18,
+    lineHeight: 20,
   },
 
   actionRow: {
     flexDirection: 'row',
-    gap: 12,
     justifyContent: 'flex-end',
-    marginTop: 8,
-    paddingTop: 14,
+    gap: 12,
+    marginTop: 16,
+    paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: '#1F2937',
+    borderTopColor: '#1E293B',
   },
   actionBtn: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     borderRadius: 10,
-    justifyContent: 'center',
+    borderWidth: 1,
     alignItems: 'center',
-    minWidth: 120,
+    justifyContent: 'center',
+    minWidth: 110,
   },
   btnAccept: {
-    backgroundColor: '#22C55E',
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderColor: '#10B981',
   },
   btnReject: {
-    backgroundColor: '#EF4444',
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderColor: '#EF4444',
   },
   btnDisabled: {
     opacity: 0.5,
   },
   btnTextAccept: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
+    color: '#10B981',
+    fontWeight: '700',
     fontSize: 13,
   },
   btnTextReject: {
+    color: '#EF4444',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  modalBox: {
+    width: '100%',
+    maxWidth: 520,
+    backgroundColor: '#0F172A',
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  modalTitle: {
+    color: '#F8FAFC',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  modalMessage: {
+    color: '#CBD5E1',
+    fontSize: 14,
+    lineHeight: 22,
+  },
+  modalSubMessage: {
+    color: '#94A3B8',
+    fontSize: 13,
+    marginTop: 8,
+  },
+  infoAlertBox: {
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    borderColor: '#F59E0B',
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 12,
+    marginTop: 12,
+  },
+  infoAlertTitle: {
+    color: '#FBBF24',
+    fontWeight: '700',
+    fontSize: 13,
+    marginBottom: 4,
+  },
+  infoAlertText: {
+    color: '#FDE68A',
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  modalBtnRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+    marginTop: 20,
+  },
+  modalCancelBtn: {
+    backgroundColor: '#1E293B',
+    borderWidth: 1,
+    borderColor: '#334155',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  modalCancelBtnText: {
+    color: '#94A3B8',
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  modalConfirmBtn: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  modalConfirmBtnText: {
     color: '#FFFFFF',
-    fontWeight: 'bold',
+    fontWeight: '700',
     fontSize: 13,
   },
 });

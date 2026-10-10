@@ -326,6 +326,41 @@ adminRouter.put('/complaints/:id/status', async (req: Request, res: Response) =>
   }
 });
 
+// DELETE /api/admin/complaints/:id - Xóa 1 khiếu nại khỏi lịch sử
+adminRouter.delete('/complaints/:id', async (req: Request, res: Response) => {
+  try {
+    const complaintId = Number(req.params.id);
+    if (!complaintId || !Number.isFinite(complaintId)) {
+      return res.status(400).json({ message: 'ID khiếu nại không hợp lệ.' });
+    }
+
+    const [result]: [any, any] = await db.query(
+      `DELETE FROM complaints WHERE complaint_id = ?`,
+      [complaintId]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Không tìm thấy khiếu nại.' });
+    }
+
+    return res.json({ ok: true, message: 'Đã xóa khiếu nại khỏi lịch sử.' });
+  } catch (error: any) {
+    console.error('Lỗi xóa khiếu nại:', error);
+    return res.status(500).json({ message: 'Không thể xóa khiếu nại', error: error.message });
+  }
+});
+
+// DELETE /api/admin/complaints - Xóa toàn bộ lịch sử khiếu nại
+adminRouter.delete('/complaints', async (_req: Request, res: Response) => {
+  try {
+    await db.query(`DELETE FROM complaints`);
+    return res.json({ ok: true, message: 'Đã xóa toàn bộ lịch sử khiếu nại.' });
+  } catch (error: any) {
+    console.error('Lỗi xóa toàn bộ lịch sử khiếu nại:', error);
+    return res.status(500).json({ message: 'Không thể xóa lịch sử khiếu nại', error: error.message });
+  }
+});
+
 // GET /api/admin/revenue/report - Báo cáo thống kê doanh thu toàn hệ thống
 adminRouter.get('/revenue/report', async (_req: Request, res: Response) => {
   try {

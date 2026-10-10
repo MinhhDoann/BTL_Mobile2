@@ -89,6 +89,18 @@ export async function updateComplaintStatus(complaintId: number, status: 'accept
   });
 }
 
+export async function deleteAdminComplaint(complaintId: number) {
+  return request<{ ok: boolean; message: string }>(`/api/admin/complaints/${complaintId}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function clearAllComplaints() {
+  return request<{ ok: boolean; message: string }>('/api/admin/complaints', {
+    method: 'DELETE',
+  });
+}
+
 export async function fetchAdminRevenueReport() {
   return request<AdminRevenueReport>('/api/admin/revenue/report');
 }

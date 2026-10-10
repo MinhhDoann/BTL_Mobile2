@@ -162,21 +162,6 @@ export default function SongDetailScreen() {
     fetchDetail();
   }, [songId]);
 
-  useEffect(() => {
-    if (detail?.artist_id) {
-      const recordAdView = async () => {
-        try {
-          const base = await detectApiBase();
-          await fetch(`${base}/api/artist/${detail.artist_id}/ad-interaction`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'view' }),
-          });
-        } catch (err) {}
-      };
-      recordAdView();
-    }
-  }, [detail?.artist_id]);
 
   const handleOpenLink = async (url: string) => {
     try {
