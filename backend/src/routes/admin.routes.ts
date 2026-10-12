@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../config/db';
+import { sendPayoutReceiptMail } from '../utils/mailer';
 
 export const adminRouter = Router();
 
@@ -342,16 +343,16 @@ adminRouter.get('/revenue/report', async (_req: Request, res: Response) => {
     const totalPlays = Number(stats.total_plays) || 0;
     const totalBannerClicks = Number(stats.total_banner_clicks) || 0;
 
-    const songPlayRevenue = totalPlays * 100;
+    const songPlayRevenue = totalPlays * 800;
     const adBannerRevenue = totalBannerClicks * 3000;
     const grossSystemRevenue = songPlayRevenue + adBannerRevenue;
 
-    const platformAdShare = adBannerRevenue * 0.30;
-    const artistAdShareGross = adBannerRevenue * 0.70;
+    const platformAdShare = grossSystemRevenue * 0.30;
+    const artistAdShareGross = grossSystemRevenue * 0.70;
     const pitTaxWithheld = artistAdShareGross * 0.10;
     const artistAdShareNet = artistAdShareGross - pitTaxWithheld;
 
-    const totalArtistNetEarnings = artistAdShareNet + songPlayRevenue;
+    const totalArtistNetEarnings = artistAdShareNet;
     const platformNetRevenue = platformAdShare + pitTaxWithheld;
 
     // Payout stats
@@ -395,11 +396,11 @@ adminRouter.get('/revenue/report', async (_req: Request, res: Response) => {
       const clicks = Number(art.banner_clicks) || 0;
       const withdrawn = Number(art.total_withdrawn) || 0;
 
-      const songRev = plays * 100;
-      const adGross = clicks * 3000;
+      const songRev = plays * 800;
+      const adGross = songRev + (clicks * 3000);
       const artistAdShare = adGross * 0.7;
       const pitTax = artistAdShare * 0.1;
-      const artistNet = (artistAdShare - pitTax) + songRev;
+      const artistNet = artistAdShare - pitTax;
       const availableBalance = Math.max(0, artistNet - withdrawn);
 
       return {
@@ -470,6 +471,53 @@ adminRouter.get('/revenue/report', async (_req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Lỗi lấy báo cáo doanh thu admin:', error);
     return res.status(500).json({ message: 'Không thể tải báo cáo doanh thu quản trị', error: error.message });
+  }
+});
+
+// POST /api/admin/payouts/:id/send-email
+adminRouter.post('/payouts/:id/send-email', async (req: Request, res: Response) => {
+  try {
+    const requestId = Number(req.params.id);
+    if (!requestId) return res.status(400).json({ message: 'Mã yêu cầu không hợp lệ' });
+
+    const [rows]: [any[], any] = await db.query(
+      `SELECT pr.*, a.name AS artist_name, u.email AS artist_email
+       FROM payout_requests pr
+       LEFT JOIN artists a ON a.artist_id = pr.artist_id
+       LEFT JOIN users u ON u.user_id = a.user_id
+       WHERE pr.request_id = ?`,
+      [requestId]
+    );
+
+    if (!rows || rows.length === 0) {
+      return res.status(404).json({ message: 'Không tìm thấy yêu cầu rút tiền' });
+    }
+
+    const payout = rows[0];
+    const targetEmail = (req.body?.email || payout.artist_email || '').trim();
+    if (!targetEmail) {
+      return res.status(400).json({ message: 'Nghệ sĩ chưa có địa chỉ email liên kết tài khoản để nhận biên lai.' });
+    }
+
+    const sent = await sendPayoutReceiptMail({
+      to: targetEmail,
+      artistName: payout.artist_name || 'Nghệ sĩ',
+      requestId: payout.request_id,
+      amount: payout.amount,
+      bankName: payout.bank_name,
+      accountNumber: payout.account_number,
+      accountHolder: payout.account_holder,
+      approvedAt: payout.created_at,
+    });
+
+    if (!sent) {
+      return res.status(500).json({ message: 'Không thể gửi email biên lai. Vui lòng thử lại.' });
+    }
+
+    return res.json({ success: true, message: `Đã gửi biên lai thành công tới ${targetEmail}` });
+  } catch (error: any) {
+    console.error('Lỗi gửi email biên lai:', error);
+    return res.status(500).json({ message: 'Lỗi máy chủ khi gửi biên lai', error: error.message });
   }
 });
 

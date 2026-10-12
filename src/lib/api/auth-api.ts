@@ -59,7 +59,7 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
   const requestToken = token;
   if (requestToken) headers.set('Authorization', `Bearer ${requestToken}`);
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15_000);
+  const timeout = setTimeout(() => controller.abort(), 30_000);
   let response: Response;
   let text: string;
   try {
@@ -73,7 +73,14 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
     listeners.forEach((listener) => listener());
   }
   let payload;
-  try { payload = text ? JSON.parse(text) : null; } catch { throw new Error('Máy chủ trả về dữ liệu không hợp lệ.'); }
+  try {
+    payload = text ? JSON.parse(text) : null;
+  } catch {
+    if (!response.ok) {
+      throw new Error(`Yêu cầu thất bại (${response.status}): ${response.statusText || 'Lỗi máy chủ'}`);
+    }
+    throw new Error('Máy chủ trả về dữ liệu không hợp lệ.');
+  }
   if (!response.ok) throw new Error(payload?.message || 'Yêu cầu thất bại.');
   return payload as T;
 }

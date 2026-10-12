@@ -1,5 +1,5 @@
 import { ADMIN_ENTITIES } from '@/src/constants/admin-entities';
-import { deleteAdminRecord, fetchAdminRows, previewAdminDelete } from '@/src/lib/api/admin-api';
+import { deleteAdminRecord, fetchAdminRows, previewAdminDelete, sendPayoutReceiptEmail } from '@/src/lib/api/admin-api';
 import { AdminDashboardData, AdminEntity, AdminPage, AdminRecord, DeletePreview } from '@/src/types/admin';
 import { formatCurrency } from '@/src/lib/format-currency';
 import { useEffect, useRef, useState } from 'react';
@@ -19,6 +19,9 @@ export function AdminDataTable({ entity, dashboard, currentUserId, onChanged, on
   const [editing, setEditing] = useState<{ id: number | null } | null>(null);
   const [deleting, setDeleting] = useState<{ id: number; preview: DeletePreview } | null>(null);
   const [invoice, setInvoice] = useState<any>(null);
+  const [recipientEmail, setRecipientEmail] = useState('');
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [emailStatus, setEmailStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const operation = useRef(0);
   useEffect(() => () => { operation.current++; }, []);
@@ -78,17 +81,158 @@ export function AdminDataTable({ entity, dashboard, currentUserId, onChanged, on
       
       // Nếu duyệt, hiển thị hóa đơn
       if (status === 'approved') {
-        setInvoice({
+        const inv = {
           ...record,
           approved_at: new Date().toISOString(),
           admin: 'System Admin'
-        });
+        };
+        setInvoice(inv);
+        setRecipientEmail(String(record.artist_email || ''));
+        setEmailStatus(null);
       }
       
       await onChanged();
     } catch (err) { setError(err instanceof Error ? err.message : 'Không thể cập nhật trạng thái.'); }
     finally { setBusy(false); }
   }
+
+  function downloadInvoiceImage(inv: any) {
+    if (!inv) return;
+    const canvas = document.createElement('canvas');
+    const width = 560;
+    const height = 660;
+    canvas.width = width * 2;
+    canvas.height = height * 2;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.scale(2, 2);
+
+    // Background gradient
+    const bgGrad = ctx.createLinearGradient(0, 0, 0, height);
+    bgGrad.addColorStop(0, '#0f172a');
+    bgGrad.addColorStop(1, '#1e293b');
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, width, height);
+
+    // Border
+    ctx.strokeStyle = '#334155';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(12, 12, width - 24, height - 24);
+
+    // Accent bar
+    ctx.fillStyle = '#10b981';
+    ctx.fillRect(12, 12, width - 24, 6);
+
+    // Header title
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#38bdf8';
+    ctx.font = 'bold 22px system-ui, -apple-system, sans-serif';
+    ctx.fillText('BIÊN LAI CHUYỂN TIỀN NGHỆ SĨ', width / 2, 56);
+
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '13px system-ui, -apple-system, sans-serif';
+    ctx.fillText('MOBILE2 MUSIC ENTERTAINMENT PLATFORM', width / 2, 78);
+
+    // Dashed divider
+    ctx.strokeStyle = '#475569';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath();
+    ctx.moveTo(35, 96);
+    ctx.lineTo(width - 35, 96);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Card background
+    ctx.fillStyle = '#111c30';
+    if (typeof (ctx as any).roundRect === 'function') {
+      (ctx as any).roundRect(30, 115, width - 60, 420, 12);
+      ctx.fill();
+    } else {
+      ctx.fillRect(30, 115, width - 60, 420);
+    }
+    ctx.strokeStyle = '#253247';
+    ctx.stroke();
+
+    const rows = [
+      { label: 'Mã giao dịch:', value: `#${inv.request_id ?? '—'}` },
+      { label: 'Thời gian duyệt:', value: new Date(inv.approved_at || Date.now()).toLocaleString('vi-VN') },
+      { label: 'Nghệ sĩ nhận:', value: inv.artist_name || 'Nghệ sĩ' },
+      { label: 'Email tài khoản:', value: recipientEmail || inv.artist_email || '—' },
+      { label: 'Ngân hàng:', value: inv.bank_name || '—' },
+      { label: 'Số tài khoản:', value: inv.account_number || '—' },
+      { label: 'Chủ tài khoản:', value: String(inv.account_holder || '—').toUpperCase() },
+      { label: 'Trạng thái:', value: 'HOÀN TẤT (THÀNH CÔNG)', highlight: '#10b981' },
+    ];
+
+    let currentY = 152;
+    for (const item of rows) {
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '14px system-ui, -apple-system, sans-serif';
+      ctx.fillText(item.label, 52, currentY);
+
+      ctx.textAlign = 'right';
+      ctx.fillStyle = item.highlight || '#f8fafc';
+      ctx.font = item.highlight ? 'bold 14px system-ui, -apple-system, sans-serif' : '500 14px system-ui, -apple-system, sans-serif';
+      ctx.fillText(item.value, width - 52, currentY);
+
+      currentY += 34;
+    }
+
+    // Amount divider
+    ctx.strokeStyle = '#334155';
+    ctx.beginPath();
+    ctx.moveTo(52, currentY);
+    ctx.lineTo(width - 52, currentY);
+    ctx.stroke();
+
+    currentY += 38;
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#cbd5e1';
+    ctx.font = 'bold 15px system-ui, -apple-system, sans-serif';
+    ctx.fillText('Số tiền chuyển:', 52, currentY);
+
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#10b981';
+    ctx.font = 'bold 22px system-ui, -apple-system, sans-serif';
+    ctx.fillText(`${formatCurrency(inv.amount)} VNĐ`, width - 52, currentY);
+
+    // Footer
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#64748b';
+    ctx.font = 'italic 12px system-ui, -apple-system, sans-serif';
+    ctx.fillText('Biên lai được phát hành tự động từ hệ thống Mobile2 Music.', width / 2, 572);
+    ctx.fillText('Đã ghi nhận giao dịch vào sổ kế toán đối soát.', width / 2, 592);
+
+    const link = document.createElement('a');
+    link.download = `bien-lai-chuyen-tien-${inv.request_id || Date.now()}.png`;
+    link.href = canvas.toDataURL('image/png');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  async function handleSendEmail(inv: any) {
+    if (!inv || sendingEmail) return;
+    const targetEmail = (recipientEmail || inv.artist_email || '').trim();
+    if (!targetEmail) {
+      setEmailStatus({ type: 'error', message: 'Vui lòng nhập địa chỉ Gmail để gửi biên lai.' });
+      return;
+    }
+    setSendingEmail(true);
+    setEmailStatus(null);
+    try {
+      const res = await sendPayoutReceiptEmail(Number(inv.request_id), targetEmail);
+      setEmailStatus({ type: 'success', message: res.message || `Đã gửi biên lai tới ${targetEmail} thành công!` });
+    } catch (err: any) {
+      setEmailStatus({ type: 'error', message: err?.message || 'Không thể gửi email. Vui lòng kiểm tra lại.' });
+    } finally {
+      setSendingEmail(false);
+    }
+  }
+
   function display(record: AdminRecord, key: string) {
     const value = record[key];
     if (key === 'is_premium' || key === 'is_public') return value ? 'Có' : 'Không';
@@ -152,7 +296,27 @@ export function AdminDataTable({ entity, dashboard, currentUserId, onChanged, on
                       <button type="button" className="admin-danger" disabled={loading || busy} aria-label={`Từ chối ${label}`} onClick={() => void updatePayoutStatus(id, 'rejected')}>Từ chối</button>
                     </>
                   ) : (
-                    <span>{record.status === 'approved' ? 'Đã duyệt' : 'Đã từ chối'}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span>{record.status === 'approved' ? 'Đã duyệt' : 'Đã từ chối'}</span>
+                      {record.status === 'approved' ? (
+                        <button
+                          type="button"
+                          aria-label={`Xem biên lai ${label}`}
+                          onClick={() => {
+                            setInvoice({
+                              ...record,
+                              approved_at: record.created_at || new Date().toISOString(),
+                              admin: 'System Admin',
+                            });
+                            setRecipientEmail(String(record.artist_email || ''));
+                            setEmailStatus(null);
+                          }}
+                          style={{ padding: '4px 8px', fontSize: 12, border: '1px solid #38bdf8', color: '#38bdf8', background: 'transparent' }}
+                        >
+                          Biên lai
+                        </button>
+                      ) : null}
+                    </div>
                   )
                 ) : (
                   <>
@@ -174,25 +338,93 @@ export function AdminDataTable({ entity, dashboard, currentUserId, onChanged, on
       {error ? <p role="alert" className="admin-error">{error}</p> : null}
       <div className="admin-actions"><button disabled={busy} onClick={() => { setDeleting(null); setError(''); }}>Hủy</button><button className="admin-danger" disabled={busy} onClick={() => void remove()}>{busy ? 'Đang xóa...' : 'Xác nhận xóa'}</button></div>
     </AdminDialog> : null}
-    {invoice ? <AdminDialog title={`HÓA ĐƠN CHUYỂN KHOẢN`} busy={false} onClose={() => setInvoice(null)}>
-      <div style={{ padding: 20, background: '#fff', color: '#000', borderRadius: 8, fontFamily: 'monospace', lineHeight: 1.6, marginTop: 10 }}>
-        <h3 style={{ textAlign: 'center', margin: '0 0 16px 0', borderBottom: '1px dashed #ccc', paddingBottom: 16 }}>BIÊN LAI CHUYỂN TIỀN<br/>NGHỆ SĨ</h3>
-        <p><strong>Mã giao dịch:</strong> {invoice.request_id}</p>
-        <p><strong>Ngày duyệt:</strong> {new Date(invoice.approved_at).toLocaleString('vi-VN')}</p>
-        <p><strong>Nghệ sĩ:</strong> {invoice.artist_name}</p>
-        <hr style={{ border: 'none', borderTop: '1px dashed #ccc', margin: '16px 0' }}/>
-        <p><strong>Số tiền:</strong> <span style={{ fontSize: 18, fontWeight: 'bold' }}>{formatCurrency(invoice.amount)} VNĐ</span></p>
-        <p><strong>Ngân hàng:</strong> {invoice.bank_name}</p>
-        <p><strong>Số tài khoản:</strong> {invoice.account_number}</p>
-        <p><strong>Chủ tài khoản:</strong> {invoice.account_holder}</p>
-        <hr style={{ border: 'none', borderTop: '1px dashed #ccc', margin: '16px 0' }}/>
-        <p style={{ textAlign: 'center', fontStyle: 'italic', fontSize: 12 }}>Giao dịch đã được duyệt thành công trên hệ thống.<br/>Vui lòng lưu lại biên lai này hoặc gửi cho nghệ sĩ để đối chiếu.</p>
+    {invoice ? <AdminDialog title={`BIÊN LAI CHUYỂN TIỀN NGHỆ SĨ`} busy={sendingEmail} onClose={() => { setInvoice(null); setEmailStatus(null); }}>
+      <div style={{ padding: 20, background: '#0f172a', color: '#f8fafc', borderRadius: 12, border: '1px solid #334155', lineHeight: 1.6, marginTop: 10 }}>
+        <div style={{ textAlign: 'center', borderBottom: '1px dashed #475569', paddingBottom: 16, marginBottom: 16 }}>
+          <h3 style={{ margin: '0 0 6px 0', color: '#38bdf8', fontSize: 18 }}>BIÊN LAI CHUYỂN TIỀN NGHỆ SĨ</h3>
+          <span style={{ fontSize: 12, color: '#94a3b8' }}>Mobile2 Music Platform</span>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '150px 1fr', gap: '8px 12px', fontSize: 13 }}>
+          <span style={{ color: '#94a3b8' }}>Mã giao dịch:</span>
+          <strong>#{invoice.request_id}</strong>
+
+          <span style={{ color: '#94a3b8' }}>Ngày duyệt:</span>
+          <span>{new Date(invoice.approved_at || Date.now()).toLocaleString('vi-VN')}</span>
+
+          <span style={{ color: '#94a3b8' }}>Nghệ sĩ nhận:</span>
+          <span style={{ color: '#38bdf8', fontWeight: 600 }}>{invoice.artist_name || 'Nghệ sĩ'}</span>
+
+          <span style={{ color: '#94a3b8' }}>Số tiền thanh toán:</span>
+          <span style={{ fontSize: 18, fontWeight: 'bold', color: '#10b981' }}>{formatCurrency(invoice.amount)} VNĐ</span>
+
+          <span style={{ color: '#94a3b8' }}>Ngân hàng:</span>
+          <span>{invoice.bank_name || '—'}</span>
+
+          <span style={{ color: '#94a3b8' }}>Số tài khoản:</span>
+          <span style={{ fontFamily: 'monospace' }}>{invoice.account_number || '—'}</span>
+
+          <span style={{ color: '#94a3b8' }}>Chủ tài khoản:</span>
+          <span style={{ textTransform: 'uppercase' }}>{invoice.account_holder || '—'}</span>
+        </div>
+
+        <hr style={{ border: 'none', borderTop: '1px dashed #334155', margin: '16px 0' }}/>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <label style={{ fontSize: 13, color: '#cbd5e1', fontWeight: 600 }}>
+            Gmail nghệ sĩ nhận biên lai:
+          </label>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              type="email"
+              placeholder="Nhập địa chỉ Gmail nghệ sĩ..."
+              value={recipientEmail}
+              onChange={(e) => setRecipientEmail(e.target.value)}
+              style={{ flex: 1, padding: '8px 12px', borderRadius: 6, background: '#1e293b', border: '1px solid #475569', color: '#fff' }}
+            />
+            <button
+              type="button"
+              className="admin-primary"
+              disabled={sendingEmail}
+              onClick={() => void handleSendEmail(invoice)}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', padding: '8px 14px' }}
+            >
+              {sendingEmail ? 'Đang gửi...' : '✉️ Gửi Đến Gmail'}
+            </button>
+          </div>
+          {emailStatus ? (
+            <p style={{ margin: '6px 0 0 0', fontSize: 13, color: emailStatus.type === 'success' ? '#10b981' : '#f87171' }}>
+              {emailStatus.message}
+            </p>
+          ) : (
+            <p style={{ margin: '4px 0 0 0', fontSize: 12, color: '#94a3b8' }}>
+              Biên lai sẽ được gửi kèm định dạng HTML chuyên nghiệp đến hộp thư của nghệ sĩ.
+            </p>
+          )}
+        </div>
       </div>
-      <div className="admin-actions" style={{ marginTop: 24 }}>
-        <button className="admin-primary" onClick={() => {
-           window.print();
-           setInvoice(null);
-        }}>In Hóa Đơn & Đóng</button>
+
+      <div className="admin-actions" style={{ marginTop: 20, display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+        <button
+          type="button"
+          onClick={() => downloadInvoiceImage(invoice)}
+          style={{ background: '#0284c7', borderColor: '#38bdf8', color: '#fff', display: 'flex', alignItems: 'center', gap: 6 }}
+        >
+          📥 Lưu Ảnh Biên Lai
+        </button>
+        <button
+          type="button"
+          onClick={() => window.print()}
+          style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+        >
+          🖨️ In Hóa Đơn
+        </button>
+        <button
+          type="button"
+          onClick={() => { setInvoice(null); setEmailStatus(null); }}
+        >
+          Đóng
+        </button>
       </div>
     </AdminDialog> : null}
   </section>;

@@ -1,7 +1,7 @@
 import { Router, Response, NextFunction } from 'express';
 import { AuthRequest } from '../types/auth.types';
 
-export const RATE_PER_PLAY = 100; // 100 VNĐ cho mỗi lượt nghe / view
+export const RATE_PER_PLAY = 800; // 800 VNĐ cho mỗi lượt nghe / view
 
 export function createArtistRouter(db: any): Router {
   const router = Router();
@@ -319,11 +319,11 @@ export function createArtistRouter(db: any): Router {
       const totalSongs = Number(summary[0]?.total_songs) || 0;
       const totalPlays = Number(summary[0]?.total_plays) || 0;
 
-      const tongTienQc = bannerClicks * 3000;
+      const tongTienBaiHat = totalPlays * RATE_PER_PLAY; // 800 VNĐ / play
+      const tongTienQc = tongTienBaiHat + (bannerClicks * 3000);
       const tienArtistNhan = tongTienQc * 0.7;
       const thueTncn = tienArtistNhan * 0.1;
-      const tongTienBaiHat = totalPlays * RATE_PER_PLAY; // 100 VNĐ / play
-      const totalRevenue = (tienArtistNhan - thueTncn) + tongTienBaiHat;
+      const totalRevenue = tienArtistNhan - thueTncn;
 
       // Tính tổng số tiền đã rút (hoặc đang chờ duyệt) để trừ đi
       const [payouts]: [any[], any] = await db.query(
@@ -331,7 +331,7 @@ export function createArtistRouter(db: any): Router {
         [artist.artist_id]
       );
       const totalWithdrawn = Number(payouts[0]?.total_withdrawn) || 0;
-      const withdrawableBalance = totalRevenue - totalWithdrawn;
+      const withdrawableBalance = Math.max(0, totalRevenue - totalWithdrawn);
 
       // Lịch sử rút tiền của artist
       const [historyRows]: [any[], any] = await db.query(
@@ -351,7 +351,7 @@ export function createArtistRouter(db: any): Router {
           title,
           cover_url,
           play_count,
-          (play_count * 100) AS song_revenue,
+          (play_count * 800) AS song_revenue,
           DATE_FORMAT(created_at, '%d/%m/%Y') AS created_date
         FROM songs
         WHERE artist_id = ?
@@ -416,11 +416,11 @@ export function createArtistRouter(db: any): Router {
       );
       const totalPlays = Number(summary[0]?.total_plays) || 0;
 
-      const tongTienQc = bannerClicks * 3000;
+      const tongTienBaiHat = totalPlays * RATE_PER_PLAY;
+      const tongTienQc = tongTienBaiHat + (bannerClicks * 3000);
       const tienArtistNhan = tongTienQc * 0.7;
       const thueTncn = tienArtistNhan * 0.1;
-      const tongTienBaiHat = totalPlays * RATE_PER_PLAY;
-      const totalRevenue = (tienArtistNhan - thueTncn) + tongTienBaiHat;
+      const totalRevenue = tienArtistNhan - thueTncn;
 
       // Tính tổng số tiền đã rút (hoặc đang chờ duyệt) để trừ đi
       const [payouts]: [any[], any] = await db.query(
@@ -428,7 +428,7 @@ export function createArtistRouter(db: any): Router {
         [artist.artist_id]
       );
       const totalWithdrawn = Number(payouts[0]?.total_withdrawn) || 0;
-      const withdrawableBalance = totalRevenue - totalWithdrawn;
+      const withdrawableBalance = Math.max(0, totalRevenue - totalWithdrawn);
 
       if (payoutAmount > withdrawableBalance) {
         return res.status(400).json({

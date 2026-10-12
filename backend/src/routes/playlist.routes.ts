@@ -3,10 +3,12 @@ import { db } from '../config/db';
 
 export const playlistRouter = Router();
 
-// GET /api/library - Lấy toàn bộ danh mục thư viện (playlists, albums, artists)
-playlistRouter.get('/library', async (_req: Request, res: Response) => {
+// GET /api/library - Lấy toàn bộ danh mục thư viện (playlists theo từng tài khoản, albums, artists)
+playlistRouter.get('/library', async (req: Request, res: Response) => {
   try {
-    const [playlists]: [any[], any] = await db.query(`
+    const userId = req.query.user_id ? Number(req.query.user_id) : null;
+
+    let playlistQuery = `
       SELECT
         p.playlist_id AS id,
         p.title,
@@ -15,9 +17,21 @@ playlistRouter.get('/library', async (_req: Request, res: Response) => {
         p.cover_url
       FROM playlists p
       LEFT JOIN playlist_songs ps ON ps.playlist_id = p.playlist_id
+    `;
+    const playlistParams: any[] = [];
+    if (userId) {
+      playlistQuery += ` WHERE p.user_id = ? `;
+      playlistParams.push(userId);
+    } else {
+      // Nếu chưa có user_id (chưa đăng nhập), không hiển thị playlist của tài khoản khác
+      playlistQuery += ` WHERE 1 = 0 `;
+    }
+    playlistQuery += `
       GROUP BY p.playlist_id, p.title, p.cover_url
       ORDER BY p.created_at DESC
-    `);
+    `;
+
+    const [playlists]: [any[], any] = await db.query(playlistQuery, playlistParams);
 
     const [albums]: [any[], any] = await db.query(`
       SELECT
@@ -52,10 +66,11 @@ playlistRouter.get('/library', async (_req: Request, res: Response) => {
   }
 });
 
-// GET /api/playlists - Lấy danh sách playlist
-playlistRouter.get('/playlists', async (_req: Request, res: Response) => {
+// GET /api/playlists - Lấy danh sách playlist (lọc theo user_id nếu có)
+playlistRouter.get('/playlists', async (req: Request, res: Response) => {
   try {
-    const [rows]: [any[], any] = await db.query(`
+    const userId = req.query.user_id ? Number(req.query.user_id) : null;
+    let query = `
       SELECT
         p.playlist_id AS id,
         p.title,
@@ -65,9 +80,20 @@ playlistRouter.get('/playlists', async (_req: Request, res: Response) => {
         p.created_at
       FROM playlists p
       LEFT JOIN playlist_songs ps ON ps.playlist_id = p.playlist_id
+    `;
+    const params: any[] = [];
+    if (userId) {
+      query += ` WHERE p.user_id = ? `;
+      params.push(userId);
+    } else if (req.query.all !== 'true') {
+      // Khi không truyền user_id và không chỉ định all=true, không hiển thị playlist riêng
+      query += ` WHERE 1 = 0 `;
+    }
+    query += `
       GROUP BY p.playlist_id, p.title, p.description, p.cover_url, p.created_at
       ORDER BY p.created_at DESC
-    `);
+    `;
+    const [rows]: [any[], any] = await db.query(query, params);
     return res.json(rows);
   } catch (error: any) {
     console.error('Lỗi GET /playlists:', error);
@@ -83,7 +109,11 @@ playlistRouter.post('/playlists', async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Tên danh sách phát không được để trống.' });
     }
 
-    const userId = user_id ? Number(user_id) : 1; // Default admin user_id = 1
+    if (!user_id) {
+      return res.status(400).json({ message: 'Vui lòng đăng nhập để tạo danh sách phát.' });
+    }
+
+    const userId = Number(user_id);
     const [result]: [any, any] = await db.query(
       `INSERT INTO playlists (user_id, title, description, is_public) VALUES (?, ?, ?, TRUE)`,
       [userId, title.trim(), description || '']

@@ -2,10 +2,10 @@ import mysql from "mysql2/promise";
 async function fix() {
   try {
     const db = await mysql.createConnection({
-      host: "localhost",
-      user: "root",
-      password: "1234",
-      database: "mobile2",
+      host: process.env.DB_HOST || "localhost",
+      user: process.env.DB_USER || "root",
+      password: process.env.DB_PASSWORD || "352001",
+      database: process.env.DB_NAME || "mobile2",
     });
     
     console.log("Connected to DB, altering users table...");

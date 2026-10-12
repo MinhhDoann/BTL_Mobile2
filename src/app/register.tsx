@@ -55,7 +55,12 @@ export default function RegisterScreen() {
         data.bio = bio;
         data.avatar_url = avatar;
       }
-      await register(data);
+      const { registerUser } = await import('@/src/lib/api/auth-api');
+      await registerUser(data);
+      router.replace({
+        pathname: '/login',
+        params: { registered: '1', email: email.trim() },
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Không thể đăng ký.');
     } finally {

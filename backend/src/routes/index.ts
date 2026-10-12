@@ -24,6 +24,16 @@ export function createApiRouter(customDb = db, authService = createAuth(customDb
   // Auth routes: /api/auth/*
   router.use('/api/auth', authService.router);
 
+  // Genres (public)
+  router.get('/api/genres', async (_req: Request, res: Response) => {
+    try {
+      const [genres]: [any[], any] = await customDb.query('SELECT genre_id, name FROM genres ORDER BY name');
+      return res.json({ genres });
+    } catch (error: any) {
+      return res.status(500).json({ ok: false, message: error.message });
+    }
+  });
+
   // Home feeds: /api/home-data
   router.use('/api', homeRouter);
   router.use('/api', playlistRouter);

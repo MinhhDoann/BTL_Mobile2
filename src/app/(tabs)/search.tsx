@@ -5,8 +5,8 @@ import { audioPlayer } from '@/src/lib/audio-player';
 import { useFooterActions } from '@/src/constants/footer-actions';
 import { detectApiBase } from '@/src/lib/api/detectApi';
 import { getCoverUrl } from '@/src/lib/cover-image';
-import { useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
+import { useRouter, useFocusEffect } from 'expo-router';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -34,6 +34,7 @@ type SongItem = {
   artist: string;
   cover: string;
   genres: string[];
+  audioUrl: string;
 };
 
 export default function SearchScreen() {
@@ -45,72 +46,75 @@ export default function SearchScreen() {
   const [songs, setSongs] = useState<SongItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let isMounted = true;
-
-    const fetchSongs = async () => {
-      try {
-        const base = await detectApiBase();
-        const response = await fetch(`${base}/api/home-data`);
-        const data = await response.json();
-
-        if (!Array.isArray(data)) {
-          if (isMounted) setSongs([]);
-          return;
-        }
-
-        // Deduplicate songs by song_id and collect genres for each song
-        const songMap = new Map<number, SongItem>();
-        const dynamicGenres = new Set<string>();
-
-        data.forEach((genre: any) => {
-          const genreName = (genre.genre_name || '').trim();
-          if (genreName && genreName !== 'Khác') {
-            dynamicGenres.add(genreName);
+  useFocusEffect(
+    useCallback(() => {
+      let isMounted = true;
+  
+      const fetchSongs = async () => {
+        try {
+          const base = await detectApiBase();
+          const response = await fetch(`${base}/api/home-data`);
+          const data = await response.json();
+  
+          if (!Array.isArray(data)) {
+            if (isMounted) setSongs([]);
+            return;
           }
-
-          (genre.songs || []).forEach((song: any) => {
-            if (!song || !song.song_id) return;
-            const songId = Number(song.song_id);
-            const existing = songMap.get(songId);
-
-            if (existing) {
-              if (genreName && !existing.genres.includes(genreName)) {
-                existing.genres.push(genreName);
-              }
-            } else {
-              songMap.set(songId, {
-                id: songId,
-                title: song.title || '',
-                artist: song.artist_name || 'Unknown artist',
-                cover: getCoverUrl(song.cover_url),
-                genres: genreName ? [genreName] : [],
-              });
+  
+          // Deduplicate songs by song_id and collect genres for each song
+          const songMap = new Map<number, SongItem>();
+          const dynamicGenres = new Set<string>();
+  
+          data.forEach((genre: any) => {
+            const genreName = (genre.genre_name || '').trim();
+            if (genreName && genreName !== 'Khác') {
+              dynamicGenres.add(genreName);
             }
+  
+            (genre.songs || []).forEach((song: any) => {
+              if (!song || !song.song_id) return;
+              const songId = Number(song.song_id);
+              const existing = songMap.get(songId);
+  
+              if (existing) {
+                if (genreName && !existing.genres.includes(genreName)) {
+                  existing.genres.push(genreName);
+                }
+              } else {
+                songMap.set(songId, {
+                  id: songId,
+                  title: song.title || '',
+                  artist: song.artist_name || 'Unknown artist',
+                  cover: getCoverUrl(song.cover_url),
+                  genres: genreName ? [genreName] : [],
+                  audioUrl: song.audio_url || '',
+                });
+              }
+            });
           });
-        });
-
-        if (isMounted) {
-          setSongs(Array.from(songMap.values()));
-          if (dynamicGenres.size > 0) {
-            const mergedGenres = ['Tất cả', ...Array.from(new Set([...DEFAULT_GENRES.slice(1), ...dynamicGenres]))];
-            setGenresList(mergedGenres);
+  
+          if (isMounted) {
+            setSongs(Array.from(songMap.values()));
+            if (dynamicGenres.size > 0) {
+              const mergedGenres = ['Tất cả', ...Array.from(new Set([...DEFAULT_GENRES.slice(1), ...dynamicGenres]))];
+              setGenresList(mergedGenres);
+            }
           }
+        } catch (error) {
+          console.error('Lỗi lấy dữ liệu tìm kiếm:', error);
+          if (isMounted) setSongs([]);
+        } finally {
+          if (isMounted) setLoading(false);
         }
-      } catch (error) {
-        console.error('Lỗi lấy dữ liệu tìm kiếm:', error);
-        if (isMounted) setSongs([]);
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    };
-
-    fetchSongs();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+      };
+  
+      fetchSongs();
+  
+      return () => {
+        isMounted = false;
+      };
+    }, [])
+  );
 
   const filteredSongs = useMemo(() => {
     const keyword = search.trim().toLowerCase();
@@ -216,7 +220,7 @@ export default function SearchScreen() {
                   onPress={async () => {
                     await audioPlayer.playTrack({
                       songId: song.id,
-                      audioUrl: '',
+                      audioUrl: song.audioUrl,
                       title: song.title,
                       artist: song.artist,
                       coverUrl: song.cover,

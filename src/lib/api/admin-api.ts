@@ -93,4 +93,11 @@ export async function fetchAdminRevenueReport() {
   return request<AdminRevenueReport>('/api/admin/revenue/report');
 }
 
+export async function sendPayoutReceiptEmail(requestId: number, email?: string) {
+  return request<{ success: boolean; message: string }>(`/api/admin/payouts/${requestId}/send-email`, {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  });
+}
+
 

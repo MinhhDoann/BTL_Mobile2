@@ -36,20 +36,10 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { detectApiBase } from '@/src/lib/api/detectApi';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const GENRE_LIST = [
-  { id: 1, name: 'Pop' },
-  { id: 2, name: 'R&B' },
-  { id: 3, name: 'Hip-Hop/Rap' },
-  { id: 4, name: 'Indie' },
-  { id: 5, name: 'Ballad' },
-  { id: 6, name: 'Rock' },
-  { id: 7, name: 'EDM' },
-  { id: 8, name: 'Jazz' },
-  { id: 9, name: 'Classical' },
-  { id: 10, name: 'Lofi' },
-];
+
 
 export default function ArtistStudioScreen() {
   const { user, loading: authLoading } = useAuth();
@@ -73,6 +63,7 @@ export default function ArtistStudioScreen() {
   const [uploadCoverUrl, setUploadCoverUrl] = useState('');
   const [uploadLyrics, setUploadLyrics] = useState('');
   const [selectedGenres, setSelectedGenres] = useState<number[]>([1]);
+  const [availableGenres, setAvailableGenres] = useState<any[]>([]);
   const [uploading, setUploading] = useState(false);
   const [isPickingFile, setIsPickingFile] = useState(false);
   const [isPickingCover, setIsPickingCover] = useState(false);
@@ -115,6 +106,14 @@ export default function ArtistStudioScreen() {
     if (!user || (user.role !== 'artist' && user.role !== 'admin')) return;
     try {
       setLoading(true);
+
+      try {
+        const base = await detectApiBase();
+        const genresRes = await fetch(`${base}/api/genres`);
+        const genresData = await genresRes.json();
+        if (genresData?.genres) setAvailableGenres(genresData.genres);
+      } catch (err) {}
+
       const [profileRes, songsRes, revRes] = await Promise.all([
         getArtistProfile().catch(() => null),
         getArtistSongs().catch(() => null),
@@ -518,7 +517,7 @@ export default function ArtistStudioScreen() {
               <View style={[styles.statCard, { borderLeftColor: '#8B5CF6' }]}>
                 <Text style={styles.statLabel}>Bài hát & Quảng cáo</Text>
                 <Text style={styles.statValue}>{(revenueData?.total_plays || 0).toLocaleString()} lượt nghe</Text>
-                <Text style={styles.statSub}>Quảng cáo: {(revenueData?.artist?.banner_views || 0).toLocaleString()} views</Text>
+                <Text style={styles.statSub}>Quảng cáo: {(revenueData?.artist?.banner_views || 0).toLocaleString()} views | {(revenueData?.artist?.banner_clicks || 0).toLocaleString()} clicks</Text>
               </View>
 
               <View style={[styles.statCard, { borderLeftColor: '#10B981' }]}>
@@ -807,17 +806,17 @@ export default function ArtistStudioScreen() {
               {/* Thể loại */}
               <Text style={styles.inputLabel}>Chọn Thể loại</Text>
               <View style={styles.genreTagsContainer}>
-                {GENRE_LIST.map((genre) => {
-                  const isSelected = selectedGenres.includes(genre.id);
+                {availableGenres.map((genre) => {
+                  const isSelected = selectedGenres.includes(genre.genre_id);
                   return (
                     <TouchableOpacity
-                      key={genre.id}
+                      key={genre.genre_id}
                       style={[styles.genreTag, isSelected && styles.genreTagActive]}
                       onPress={() => {
                         if (isSelected) {
-                          setSelectedGenres(selectedGenres.filter((id) => id !== genre.id));
+                          setSelectedGenres(selectedGenres.filter((id) => id !== genre.genre_id));
                         } else {
-                          setSelectedGenres([...selectedGenres, genre.id]);
+                          setSelectedGenres([...selectedGenres, genre.genre_id]);
                         }
                       }}>
                       <Text style={[styles.genreTagText, isSelected && styles.genreTagTextActive]}>

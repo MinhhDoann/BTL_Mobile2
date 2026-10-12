@@ -86,7 +86,7 @@ export function AdminRevenueView() {
         <View style={{ flex: 1 }}>
           <Text style={styles.bannerTitle}>📈 Báo cáo Thống kê Doanh thu Hệ thống</Text>
           <Text style={styles.bannerSubTitle}>
-            Tổng hợp dữ liệu doanh thu lượt nghe bài hát (100đ/lượt), lượt click quảng cáo banner (3.000đ/click), phân bổ thu nhập cho Nghệ sĩ và lợi nhuận hệ thống.
+            Tổng hợp dữ liệu doanh thu lượt nghe bài hát (800đ/lượt), lượt click quảng cáo banner (3.000đ/click), phân bổ thu nhập cho Nghệ sĩ và lợi nhuận hệ thống.
           </Text>
         </View>
         <Pressable style={styles.refreshBtn} onPress={loadReport}>
@@ -108,7 +108,7 @@ export function AdminRevenueView() {
           <Text style={styles.statLabel}>Lợi nhuận Hệ thống Giữ lại</Text>
           <Text style={[styles.statValue, { color: '#22C55E' }]}>{formatVND(summary.platform_net_revenue)}</Text>
           <Text style={styles.statSubText}>
-            30% QC Banner: {formatVND(summary.platform_ad_share)} + Thuế TNCN: {formatVND(summary.pit_tax_withheld)}
+            30% Tổng Doanh thu: {formatVND(summary.platform_ad_share)} + Thuế TNCN: {formatVND(summary.pit_tax_withheld)}
           </Text>
         </View>
 
@@ -116,7 +116,7 @@ export function AdminRevenueView() {
           <Text style={styles.statLabel}>Tổng Thu nhập Artist Thực nhận</Text>
           <Text style={[styles.statValue, { color: '#38BDF8' }]}>{formatVND(summary.total_artist_net_earnings)}</Text>
           <Text style={styles.statSubText}>
-            Sau khi trừ 10% thuế TNCN từ phần quảng cáo
+            Sau khi trừ 10% thuế TNCN từ tổng thu nhập
           </Text>
         </View>
 
@@ -145,7 +145,7 @@ export function AdminRevenueView() {
           </View>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: '#22C55E' }]} />
-            <Text style={styles.legendText}>Hệ thống giữ lại (30% QC) ({platformSharePct}%)</Text>
+            <Text style={styles.legendText}>Hệ thống giữ lại (30% Tổng DT) ({platformSharePct}%)</Text>
           </View>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: '#F59E0B' }]} />

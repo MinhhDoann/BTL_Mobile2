@@ -232,41 +232,45 @@ export function AdminComplaintsView() {
 
                 {/* Bottom Action Row: Nút Tiếp nhận & Từ chối */}
                 <View style={styles.actionRow}>
-                  <Pressable
-                    onPress={() => handleAction(item.complaint_id, 'accepted')}
-                    disabled={updatingId === item.complaint_id || isAccepted}
-                    style={[
-                      styles.actionBtn,
-                      styles.btnAccept,
-                      (isAccepted || updatingId === item.complaint_id) && styles.btnDisabled,
-                    ]}
-                  >
-                    {updatingId === item.complaint_id ? (
-                      <ActivityIndicator size="small" color="#FFFFFF" />
-                    ) : (
-                      <Text style={styles.btnTextAccept}>
-                        {isAccepted ? '✓ Đã tiếp nhận' : '✓ Tiếp nhận'}
-                      </Text>
-                    )}
-                  </Pressable>
+                  {!isRejected && (
+                    <Pressable
+                      onPress={() => handleAction(item.complaint_id, 'accepted')}
+                      disabled={updatingId === item.complaint_id || isAccepted}
+                      style={[
+                        styles.actionBtn,
+                        styles.btnAccept,
+                        (isAccepted || updatingId === item.complaint_id) && styles.btnDisabled,
+                      ]}
+                    >
+                      {updatingId === item.complaint_id ? (
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      ) : (
+                        <Text style={styles.btnTextAccept}>
+                          {isAccepted ? '✓ Đã tiếp nhận' : '✓ Tiếp nhận'}
+                        </Text>
+                      )}
+                    </Pressable>
+                  )}
 
-                  <Pressable
-                    onPress={() => handleAction(item.complaint_id, 'rejected')}
-                    disabled={updatingId === item.complaint_id || isRejected}
-                    style={[
-                      styles.actionBtn,
-                      styles.btnReject,
-                      (isRejected || updatingId === item.complaint_id) && styles.btnDisabled,
-                    ]}
-                  >
-                    {updatingId === item.complaint_id ? (
-                      <ActivityIndicator size="small" color="#FFFFFF" />
-                    ) : (
-                      <Text style={styles.btnTextReject}>
-                        {isRejected ? '✕ Đã từ chối' : '✕ Từ chối'}
-                      </Text>
-                    )}
-                  </Pressable>
+                  {!isAccepted && (
+                    <Pressable
+                      onPress={() => handleAction(item.complaint_id, 'rejected')}
+                      disabled={updatingId === item.complaint_id || isRejected}
+                      style={[
+                        styles.actionBtn,
+                        styles.btnReject,
+                        (isRejected || updatingId === item.complaint_id) && styles.btnDisabled,
+                      ]}
+                    >
+                      {updatingId === item.complaint_id ? (
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      ) : (
+                        <Text style={styles.btnTextReject}>
+                          {isRejected ? '✕ Đã từ chối' : '✕ Từ chối'}
+                        </Text>
+                      )}
+                    </Pressable>
+                  )}
                 </View>
               </View>
             );

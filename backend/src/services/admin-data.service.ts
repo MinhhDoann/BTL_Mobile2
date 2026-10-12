@@ -55,9 +55,9 @@ export const entities: Record<EntityName, EntityConfig> = {
     id: 'request_id',
     label: 'request_id', // Hiển thị ID làm label
     fields: ['artist_id', 'amount', 'bank_name', 'account_number', 'account_holder', 'status', 'created_at'],
-    search: ['a.name', 't.bank_name', 't.account_number', 't.account_holder'],
-    joins: 'LEFT JOIN artists a ON a.artist_id = t.artist_id',
-    extra: ', a.name AS artist_name',
+    search: ['a.name', 'u.email', 't.bank_name', 't.account_number', 't.account_holder'],
+    joins: 'LEFT JOIN artists a ON a.artist_id = t.artist_id LEFT JOIN users u ON u.user_id = a.user_id',
+    extra: ', a.name AS artist_name, u.email AS artist_email',
   },
 };
 

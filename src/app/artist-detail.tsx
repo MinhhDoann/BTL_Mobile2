@@ -60,21 +60,30 @@ export default function ArtistDetailScreen() {
     fetchArtistDetail();
   }, [fetchArtistDetail]);
 
-  const handlePlaySong = async (song: ArtistSongItem) => {
-    await audioPlayer.playTrack({
-      songId: song.song_id,
-      audioUrl: song.audio_url,
-      title: song.title,
-      artist: song.artist_name,
-      coverUrl: song.cover_url,
-    });
+  const handlePlaySong = async (song: ArtistSongItem, songIdx?: number) => {
+    const tracks = songs.map((s) => ({
+      songId: s.song_id,
+      audioUrl: s.audio_url,
+      title: s.title,
+      artist: s.artist_name,
+      coverUrl: s.cover_url,
+    }));
+    const index = typeof songIdx === 'number' ? songIdx : songs.findIndex((s) => s.song_id === song.song_id);
+    await audioPlayer.setQueue(tracks, Math.max(0, index));
     router.push({ pathname: '/song-detail', params: { songId: String(song.song_id) } });
   };
 
   const handlePlayAll = async () => {
     if (songs.length === 0) return;
-    const firstSong = songs[0];
-    await handlePlaySong(firstSong);
+    const tracks = songs.map((s) => ({
+      songId: s.song_id,
+      audioUrl: s.audio_url,
+      title: s.title,
+      artist: s.artist_name,
+      coverUrl: s.cover_url,
+    }));
+    await audioPlayer.setQueue(tracks, 0);
+    router.push({ pathname: '/song-detail', params: { songId: String(songs[0].song_id) } });
   };
 
   const formatDuration = (seconds: number) => {
@@ -137,7 +146,7 @@ export default function ArtistDetailScreen() {
                     <Text style={styles.songIndex}>{index + 1}</Text>
                     <TouchableOpacity
                       style={styles.songTouchWrap}
-                      onPress={() => handlePlaySong(song)}
+                      onPress={() => handlePlaySong(song, index)}
                     >
                       <Image source={{ uri: getCoverUrl(song.cover_url) }} style={styles.songCover} />
                       <View style={styles.songMainInfo}>

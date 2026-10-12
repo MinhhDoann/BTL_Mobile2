@@ -1,5 +1,6 @@
 import { Audio, InterruptionModeIOS, InterruptionModeAndroid } from 'expo-av';
 import { recordSongPlay } from './api/artist-api';
+import { detectApiBase } from './api/detectApi';
 
 export type AudioTrack = {
   songId: number;
@@ -18,6 +19,10 @@ export type PlayerState = {
   title?: string;
   coverUrl?: string | null;
   artist?: string;
+  queue: AudioTrack[];
+  currentIndex: number;
+  repeatMode: 'off' | 'all' | 'one';
+  isShuffle: boolean;
 };
 
 type Listener = (state: PlayerState) => void;
@@ -29,6 +34,10 @@ class AudioPlayerService {
   private initialized = false;
   // Every load gets a unique id. Status events from an older sound are ignored.
   private playbackVersion = 0;
+  private queue: AudioTrack[] = [];
+  private currentIndex = -1;
+  private repeatMode: 'off' | 'all' | 'one' = 'off';
+  private isShuffle = false;
   private state: PlayerState = {
     songId: null,
     isPlaying: false,
@@ -37,6 +46,10 @@ class AudioPlayerService {
     title: undefined,
     artist: undefined,
     coverUrl: undefined,
+    queue: [],
+    currentIndex: -1,
+    repeatMode: 'off',
+    isShuffle: false,
   };
   private loading: Promise<void> | null = null;
   private hasRecordedPlayForSongId: number | null = null;
@@ -76,7 +89,15 @@ class AudioPlayerService {
     this.playbackVersion += 1;
     this.sound = null;
     this.activeSongId = null;
-    this.setState({ songId: null, isPlaying: false, positionMs: 0, durationMs: 0, title: undefined, coverUrl: undefined, artist: undefined });
+    this.setState({
+      songId: null,
+      isPlaying: false,
+      positionMs: 0,
+      durationMs: 0,
+      title: undefined,
+      coverUrl: undefined,
+      artist: undefined,
+    });
 
     if (!soundToStop) return;
 
@@ -95,8 +116,38 @@ class AudioPlayerService {
     }
 
     this.loading = (async () => {
+      // Sync queue with currently playing track
+      const existingIdx = this.queue.findIndex((t) => Number(t.songId) === Number(track.songId));
+      if (existingIdx >= 0) {
+        this.currentIndex = existingIdx;
+      } else {
+        // If track is not in queue, insert it at current position or make single track queue
+        if (this.queue.length === 0) {
+          this.queue = [track];
+          this.currentIndex = 0;
+        } else {
+          this.queue.splice(this.currentIndex + 1, 0, track);
+          this.currentIndex += 1;
+        }
+      }
+
+      this.setState({
+        queue: this.queue,
+        currentIndex: this.currentIndex,
+      });
+
       let safeUrl = track.audioUrl || 'https://interactive-examples.mdn.mozilla.net/media/cc0-audio/t-rex-roar.mp3';
-      
+
+      const apiBase = await detectApiBase();
+      if (safeUrl.startsWith('/')) {
+        safeUrl = `${apiBase}${safeUrl}`;
+      } else if (safeUrl.includes('/uploads/')) {
+        const uploadsIndex = safeUrl.indexOf('/uploads/');
+        safeUrl = `${apiBase}${safeUrl.substring(uploadsIndex)}`;
+      }
+
+      console.log('[AudioPlayer] Loading track URL:', safeUrl);
+
       // Basic validation for URL
       if (!safeUrl.startsWith('http://') && !safeUrl.startsWith('https://') && !safeUrl.startsWith('file://')) {
         console.warn('Invalid audio URL format:', safeUrl);
@@ -106,6 +157,7 @@ class AudioPlayerService {
 
       if (this.sound && Number(this.activeSongId) === Number(track.songId)) {
         const status = await this.sound.getStatusAsync();
+        if (!this.sound) return; // Fix race condition: sound was stopped while awaiting status
         if (!status.isLoaded) return;
 
         if (status.isPlaying) {
@@ -130,6 +182,13 @@ class AudioPlayerService {
           (status: any) => {
             if (!status.isLoaded) return;
             if (playbackVersion !== this.playbackVersion) return;
+
+            // Tự động phát bài tiếp theo khi kết thúc bài hát
+            if (status.didJustFinish && !status.isLooping) {
+              void this.handleTrackEnded();
+              return;
+            }
+
             this.setState({
               songId: Number(track.songId),
               positionMs: status.positionMillis ?? 0,
@@ -164,6 +223,8 @@ class AudioPlayerService {
             title: track.title,
             coverUrl: track.coverUrl,
             artist: track.artist,
+            queue: this.queue,
+            currentIndex: this.currentIndex,
           });
 
           if (initialStatus.isPlaying && this.hasRecordedPlayForSongId !== Number(track.songId)) {
@@ -183,11 +244,117 @@ class AudioPlayerService {
     }
   }
 
+  private async handleTrackEnded() {
+    if (this.repeatMode === 'one') {
+      if (this.sound) {
+        await this.sound.setPositionAsync(0);
+        await this.sound.playAsync();
+        this.setState({ isPlaying: true, positionMs: 0 });
+      }
+      return;
+    }
+
+    await this.playNext(true);
+  }
+
+  async playNext(fromAutoEnd = false) {
+    if (this.queue.length === 0) return;
+
+    let nextIndex = this.currentIndex + 1;
+
+    if (this.isShuffle && this.queue.length > 1) {
+      let rand = Math.floor(Math.random() * this.queue.length);
+      while (rand === this.currentIndex && this.queue.length > 1) {
+        rand = Math.floor(Math.random() * this.queue.length);
+      }
+      nextIndex = rand;
+    }
+
+    if (nextIndex >= this.queue.length) {
+      if (this.repeatMode === 'all') {
+        nextIndex = 0;
+      } else {
+        if (fromAutoEnd) {
+          this.setState({ isPlaying: false, positionMs: this.state.durationMs });
+          return;
+        }
+        nextIndex = 0;
+      }
+    }
+
+    this.currentIndex = nextIndex;
+    const nextTrack = this.queue[nextIndex];
+    if (nextTrack) {
+      await this.playTrack(nextTrack);
+    }
+  }
+
+  async playPrevious() {
+    if (this.queue.length === 0) return;
+
+    // Nếu bài đã phát hơn 3s thì phát lại từ đầu
+    if (this.state.positionMs > 3000 && this.sound) {
+      await this.seekTo(0);
+      return;
+    }
+
+    let prevIndex = this.currentIndex - 1;
+    if (prevIndex < 0) {
+      prevIndex = this.queue.length - 1;
+    }
+
+    this.currentIndex = prevIndex;
+    const prevTrack = this.queue[prevIndex];
+    if (prevTrack) {
+      await this.playTrack(prevTrack);
+    }
+  }
+
+  async playIndex(index: number) {
+    if (index < 0 || index >= this.queue.length) return;
+    this.currentIndex = index;
+    const track = this.queue[index];
+    if (track) {
+      await this.playTrack(track);
+    }
+  }
+
+  async setQueue(tracks: AudioTrack[], startIndex = 0) {
+    this.queue = [...tracks];
+    this.currentIndex = startIndex;
+    this.setState({
+      queue: this.queue,
+      currentIndex: this.currentIndex,
+    });
+    if (tracks[startIndex]) {
+      await this.playTrack(tracks[startIndex]);
+    }
+  }
+
+  setRepeatMode(mode: 'off' | 'all' | 'one') {
+    this.repeatMode = mode;
+    this.setState({ repeatMode: mode });
+  }
+
+  setShuffle(shuffle: boolean) {
+    this.isShuffle = shuffle;
+    this.setState({ isShuffle: shuffle });
+  }
+
+  getQueue(): AudioTrack[] {
+    return [...this.queue];
+  }
+
+  getCurrentIndex(): number {
+    return this.currentIndex;
+  }
+
   async togglePlay() {
     await this.ensureAudioMode();
     if (!this.sound) return;
 
     const status = await this.sound.getStatusAsync();
+    if (!this.sound) return;
     if (!status.isLoaded) return;
 
     if (status.isPlaying) {
@@ -223,6 +390,7 @@ class AudioPlayerService {
 
     try {
       const status = await this.sound.getStatusAsync();
+      if (!this.sound) return;
       if (!status.isLoaded) return;
 
       const current = status.positionMillis && Number.isFinite(status.positionMillis) ? status.positionMillis : 0;
@@ -243,6 +411,7 @@ class AudioPlayerService {
 
     try {
       const status = await this.sound.getStatusAsync();
+      if (!this.sound) return;
       if (!status.isLoaded) return;
 
       const duration = status.durationMillis && Number.isFinite(status.durationMillis) ? status.durationMillis : positionMs;

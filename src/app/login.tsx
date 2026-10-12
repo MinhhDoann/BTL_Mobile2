@@ -18,13 +18,14 @@ import { forgotPassword } from '@/src/lib/api/auth-api';
 
 export default function LoginScreen() {
   const { user, loading, login } = useAuth();
-  const { next } = useLocalSearchParams<{ next?: string }>();
+  const { next, registered, email: queryEmail } = useLocalSearchParams<{ next?: string; registered?: string; email?: string }>();
   const router = useRouter();
 
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(queryEmail || '');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState(registered ? 'Đăng ký tài khoản thành công! Vui lòng đăng nhập.' : '');
 
   // Forgot password modal state
   const [showForgotModal, setShowForgotModal] = useState(false);
@@ -88,6 +89,8 @@ export default function LoginScreen() {
             <Text style={styles.brand}>MOBILE2</Text>
             <Text style={styles.title}>Đăng nhập</Text>
             <Text style={styles.description}>Đăng nhập bằng tài khoản của bạn để tiếp tục.</Text>
+
+            {notice ? <Text accessibilityRole="alert" style={styles.notice}>{notice}</Text> : null}
 
             <Text style={styles.label}>Email</Text>
             <TextInput
@@ -220,6 +223,17 @@ const styles = StyleSheet.create({
     borderColor: '#334155',
   },
   error: { color: '#FDA4AF', marginBottom: 16 },
+  notice: {
+    color: '#34D399',
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    borderColor: '#059669',
+    borderWidth: 1,
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 18,
+    textAlign: 'center',
+    fontWeight: '600',
+  },
   button: { backgroundColor: '#8B5CF6', padding: 15, borderRadius: 10, alignItems: 'center' },
   buttonText: { color: '#FFF', fontWeight: '700' },
   links: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 22 },

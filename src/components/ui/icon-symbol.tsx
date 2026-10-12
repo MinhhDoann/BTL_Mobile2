@@ -24,6 +24,7 @@ const MAPPING = {
   'plus': 'add',
   'shield.fill': 'admin-panel-settings',
   'mic.fill': 'mic',
+  'person.fill': 'person',
 } as IconMapping;
 
 /**

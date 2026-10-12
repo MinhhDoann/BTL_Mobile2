@@ -1,6 +1,6 @@
 import { useAuth } from '@/src/contexts/auth';
 import { detectApiBase } from '@/src/lib/api/detectApi';
-import { audioPlayer } from '@/src/lib/audio-player';
+import { audioPlayer, AudioTrack } from '@/src/lib/audio-player';
 import { getCoverUrl } from '@/src/lib/cover-image';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -36,6 +36,12 @@ type SongDetailItem = {
   genre_name: string;
 };
 
+const AD_BANNERS = [
+  { id: 1, image: 'https://dummyimage.com/600x120/1877F2/ffffff.png&text=Facebook+Sponsor', url: 'https://www.facebook.com' },
+  { id: 2, image: 'https://dummyimage.com/600x120/24292F/ffffff.png&text=GitHub+Sponsor', url: 'https://github.com/MinhhDoann/BTL_Mobile2' },
+  { id: 3, image: 'https://dummyimage.com/600x120/EA4335/ffffff.png&text=Gmail+Sponsor', url: 'mailto:minhdoan.contact@gmail.com' }
+];
+
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const COVER_SIZE = Math.min(SCREEN_WIDTH - 64, 320);
 
@@ -51,6 +57,8 @@ export default function SongDetailScreen() {
   const [positionMs, setPositionMs] = useState(0);
   const [durationMs, setDurationMs] = useState(0);
   const [currentSongId, setCurrentSongId] = useState<number | null>(null);
+  const [queue, setQueue] = useState<AudioTrack[]>(audioPlayer.getQueue());
+  const [currentQueueIndex, setCurrentQueueIndex] = useState<number>(audioPlayer.getCurrentIndex());
 
   // UI state
   const [isLiked, setIsLiked] = useState(false);
@@ -59,6 +67,14 @@ export default function SongDetailScreen() {
   const [showLyrics, setShowLyrics] = useState(false);
   const [showAddToPlaylistModal, setShowAddToPlaylistModal] = useState(false);
   const [showSponsorModal, setShowSponsorModal] = useState(false);
+  const [currentAdIndex, setCurrentAdIndex] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentAdIndex((prev) => (prev + 1) % AD_BANNERS.length);
+    }, 4000);
+    return () => clearInterval(timer);
+  }, []);
   const [userPlaylists, setUserPlaylists] = useState<any[]>([]);
   const [addingToPlaylistId, setAddingToPlaylistId] = useState<number | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -104,7 +120,7 @@ export default function SongDetailScreen() {
   const fetchUserPlaylists = async () => {
     try {
       const base = await detectApiBase();
-      const res = await fetch(`${base}/api/playlists`);
+      const res = await fetch(user?.user_id ? `${base}/api/playlists?user_id=${user.user_id}` : `${base}/api/playlists`);
       if (res.ok) {
         const data = await res.json();
         setUserPlaylists(Array.isArray(data) ? data : []);
@@ -191,7 +207,7 @@ export default function SongDetailScreen() {
     }
   };
 
-  const handleAdClick = async () => {
+  const handleAdClick = async (url: string) => {
     if (detail?.artist_id) {
       try {
         const base = await detectApiBase();
@@ -202,7 +218,7 @@ export default function SongDetailScreen() {
         });
       } catch (err) {}
     }
-    setShowSponsorModal(true);
+    handleOpenLink(url);
   };
 
   useEffect(() => {
@@ -211,10 +227,21 @@ export default function SongDetailScreen() {
       setIsPlaying(state.isPlaying);
       setPositionMs(state.positionMs);
       setDurationMs(state.durationMs);
+      setRepeatMode(state.repeatMode);
+      setIsShuffle(state.isShuffle);
+      setQueue(state.queue);
+      setCurrentQueueIndex(state.currentIndex);
     });
 
     return unsubscribe;
   }, []);
+
+  // Tự động chuyển bài hiển thị khi bài hát mới bắt đầu phát
+  useEffect(() => {
+    if (currentSongId && Number(songId) !== Number(currentSongId)) {
+      router.setParams({ songId: String(currentSongId) });
+    }
+  }, [currentSongId, songId]);
 
   const playSong = async (trackSong: SongDetailItem) => {
     await audioPlayer.playTrack({
@@ -240,6 +267,30 @@ export default function SongDetailScreen() {
 
   const handleSkip = async (amountMs: number) => {
     await audioPlayer.skip(amountMs);
+  };
+
+  const handleNextTrack = async () => {
+    await audioPlayer.playNext();
+  };
+
+  const handlePrevTrack = async () => {
+    await audioPlayer.playPrevious();
+  };
+
+  const handlePlayFromQueue = async (idx: number) => {
+    await audioPlayer.playIndex(idx);
+  };
+
+  const handleToggleShuffle = () => {
+    const next = !isShuffle;
+    setIsShuffle(next);
+    audioPlayer.setShuffle(next);
+  };
+
+  const handleToggleRepeat = () => {
+    const nextMode = repeatMode === 'off' ? 'all' : repeatMode === 'all' ? 'one' : 'off';
+    setRepeatMode(nextMode);
+    audioPlayer.setRepeatMode(nextMode);
   };
 
   const [trackWidth, setTrackWidth] = useState(SCREEN_WIDTH - 48);
@@ -381,22 +432,30 @@ export default function SongDetailScreen() {
         <View style={styles.controlsRow}>
           <TouchableOpacity
             style={styles.secondaryButton}
-            onPress={() => setIsShuffle(!isShuffle)}
+            onPress={handleToggleShuffle}
             activeOpacity={0.7}
           >
             <MaterialIcons
               name="shuffle"
-              size={26}
+              size={24}
               color={isShuffle ? '#38BDF8' : '#94A3B8'}
             />
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.controlButton}
+            onPress={handlePrevTrack}
+            activeOpacity={0.7}
+          >
+            <MaterialIcons name="skip-previous" size={32} color="#F8FAFC" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.skipButton}
             onPress={() => handleSkip(-10000)}
             activeOpacity={0.7}
           >
-            <MaterialIcons name="skip-previous" size={38} color="#F8FAFC" />
+            <MaterialIcons name="replay-10" size={30} color="#CBD5E1" />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -406,30 +465,36 @@ export default function SongDetailScreen() {
           >
             <MaterialIcons
               name={isPlaying ? 'pause' : 'play-arrow'}
-              size={40}
+              size={38}
               color="#0F172A"
               style={{ marginLeft: isPlaying ? 0 : 3 }}
             />
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.controlButton}
+            style={styles.skipButton}
             onPress={() => handleSkip(10000)}
             activeOpacity={0.7}
           >
-            <MaterialIcons name="skip-next" size={38} color="#F8FAFC" />
+            <MaterialIcons name="forward-10" size={30} color="#CBD5E1" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.controlButton}
+            onPress={handleNextTrack}
+            activeOpacity={0.7}
+          >
+            <MaterialIcons name="skip-next" size={32} color="#F8FAFC" />
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.secondaryButton}
-            onPress={() =>
-              setRepeatMode((prev) => (prev === 'off' ? 'all' : prev === 'all' ? 'one' : 'off'))
-            }
+            onPress={handleToggleRepeat}
             activeOpacity={0.7}
           >
             <MaterialIcons
               name={repeatMode === 'one' ? 'repeat-one' : 'repeat'}
-              size={26}
+              size={24}
               color={repeatMode !== 'off' ? '#38BDF8' : '#94A3B8'}
             />
           </TouchableOpacity>
@@ -465,9 +530,66 @@ export default function SongDetailScreen() {
 
         </View>
 
+        {/* Danh sách bài hát tiếp theo trong hàng đợi */}
+        {queue.length > 0 && (
+          <View style={styles.queueContainer}>
+            <View style={styles.queueHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <MaterialIcons name="queue-music" size={24} color="#38BDF8" />
+                <Text style={styles.sectionHeadingNoMargin}>Danh sách phát tiếp theo</Text>
+              </View>
+              <Text style={styles.queueCountText}>
+                {currentQueueIndex >= 0 ? `Bài ${currentQueueIndex + 1} / ${queue.length}` : `${queue.length} bài`}
+              </Text>
+            </View>
+
+            <View style={styles.queueCard}>
+              {queue.map((track, idx) => {
+                const isCurrent = Number(track.songId) === Number(currentSongId);
+                return (
+                  <TouchableOpacity
+                    key={`${track.songId}-${idx}`}
+                    style={[styles.queueItem, idx > 0 && styles.queueItemBorder, isCurrent && styles.queueItemActive]}
+                    onPress={() => handlePlayFromQueue(idx)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.queueIndexBox}>
+                      {isCurrent ? (
+                        <MaterialIcons name="equalizer" size={20} color="#38BDF8" />
+                      ) : (
+                        <Text style={styles.queueIndexText}>{idx + 1}</Text>
+                      )}
+                    </View>
+                    <Image
+                      source={{ uri: getCoverUrl(track.coverUrl) }}
+                      style={styles.queueCover}
+                    />
+                    <View style={styles.queueTextWrap}>
+                      <Text
+                        style={[styles.queueTitle, isCurrent && styles.queueTitleActive]}
+                        numberOfLines={1}
+                      >
+                        {track.title || 'Bài hát'}
+                      </Text>
+                      <Text style={styles.queueArtist} numberOfLines={1}>
+                        {track.artist || 'Nghệ sĩ'}
+                      </Text>
+                    </View>
+                    {isCurrent && (
+                      <View style={styles.badgeNowPlaying}>
+                        <Text style={styles.badgeNowPlayingText}>Đang phát</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        )}
+
         {/* Quảng cáo Banner */}
-        <TouchableOpacity style={styles.adBannerTouch} onPress={handleAdClick} activeOpacity={0.9}>
-          <Image source={{ uri: 'https://dummyimage.com/600x120/111827/a78bfa.png&text=Sponsor+Ad' }} style={styles.adBannerImg} resizeMode='contain' />
+        <TouchableOpacity style={styles.adBannerTouch} onPress={() => handleAdClick(AD_BANNERS[currentAdIndex].url)} activeOpacity={0.9}>
+          <Image source={{ uri: AD_BANNERS[currentAdIndex].image }} style={styles.adBannerImg} resizeMode='contain' />
         </TouchableOpacity>
 
         {/* Tác giả */}
@@ -491,7 +613,14 @@ export default function SongDetailScreen() {
         {artistSongs.length > 0 ? (
           <View style={styles.artistSongsCard}>
             {artistSongs.map((s, idx) => (
-              <TouchableOpacity key={s.song_id} style={[styles.songItem, idx > 0 && styles.songItemBorder]} onPress={() => playSong(s)}>
+              <TouchableOpacity 
+                key={s.song_id} 
+                style={[styles.songItem, idx > 0 && styles.songItemBorder]} 
+                onPress={() => {
+                  playSong(s);
+                  router.replace({ pathname: '/song-detail', params: { songId: String(s.song_id) } });
+                }}
+              >
                 <Image source={{ uri: getCoverUrl(s.cover_url) }} style={styles.songItemCover} />
                 <View style={styles.songItemTextWrap}>
                   <Text style={styles.songItemTitle} numberOfLines={1}>{s.title}</Text>
@@ -949,21 +1078,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   secondaryButton: {
+    width: 38,
+    height: 38,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  controlButton: {
     width: 44,
     height: 44,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  controlButton: {
-    width: 52,
-    height: 52,
+  skipButton: {
+    width: 40,
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
   },
   primaryButton: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     backgroundColor: '#38BDF8',
     justifyContent: 'center',
     alignItems: 'center',
@@ -1174,5 +1309,92 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
     fontSize: 12,
     marginTop: 2,
+  },
+  queueContainer: {
+    marginTop: 24,
+    marginBottom: 8,
+  },
+  queueHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  sectionHeadingNoMargin: {
+    color: '#F8FAFC',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  queueCountText: {
+    color: '#38BDF8',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  queueCard: {
+    backgroundColor: '#1E293B',
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+  },
+  queueItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.04)',
+  },
+  queueItemBorder: {},
+  queueItemActive: {
+    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+  },
+  queueIndexBox: {
+    width: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  queueIndexText: {
+    color: '#64748B',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  queueCover: {
+    width: 46,
+    height: 46,
+    borderRadius: 8,
+    backgroundColor: '#0F172A',
+  },
+  queueTextWrap: {
+    flex: 1,
+    marginLeft: 12,
+    marginRight: 8,
+  },
+  queueTitle: {
+    color: '#F8FAFC',
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 3,
+  },
+  queueTitleActive: {
+    color: '#38BDF8',
+    fontWeight: 'bold',
+  },
+  queueArtist: {
+    color: '#94A3B8',
+    fontSize: 13,
+  },
+  badgeNowPlaying: {
+    backgroundColor: '#0284C7',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  badgeNowPlayingText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: 'bold',
   },
 });

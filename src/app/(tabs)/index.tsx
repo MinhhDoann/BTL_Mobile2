@@ -113,8 +113,21 @@ export default function HomeScreen() {
 
   const [expanded, setExpanded] = useState<{ trending: boolean; recent: boolean }>({ trending: false, recent: false });
 
-  // Aggregate lists memoized to avoid recalculation on each render
-  const allSongs = useMemo(() => genresData.flatMap((g) => g.songs || []), [genresData]);
+  // Aggregate lists memoized and deduplicated by song_id to avoid duplicate keys across genres
+  const allSongs = useMemo(() => {
+    const seen = new Set<number>();
+    const unique: Song[] = [];
+    for (const g of genresData) {
+      for (const s of g.songs || []) {
+        if (!seen.has(s.song_id)) {
+          seen.add(s.song_id);
+          unique.push(s);
+        }
+      }
+    }
+    return unique;
+  }, [genresData]);
+
   const trendingList = useMemo(() => allSongs, [allSongs]);
   const recentList = useMemo(() => [...allSongs].sort((a, b) => b.song_id - a.song_id), [allSongs]);
 
@@ -167,9 +180,11 @@ export default function HomeScreen() {
                 <Text style={[styles.chipText, tab === 'music' && styles.chipTextActive]}>Nhạc</Text>
               </TouchableOpacity>
 
+              {/*
               <TouchableOpacity onPress={() => setTab('podcast')} style={[styles.chip, tab === 'podcast' && styles.chipActive]}>
                 <Text style={[styles.chipText, tab === 'podcast' && styles.chipTextActive]}>Podcasts</Text>
               </TouchableOpacity>
+              */}
             </ScrollView>
           </View>
 
@@ -303,7 +318,7 @@ export default function HomeScreen() {
                 </View>
               )}
 
-              {tab === 'podcast' && <Text style={styles.placeholder}>Danh sách Podcasts</Text>}
+              {/* {tab === 'podcast' && <Text style={styles.placeholder}>Danh sách Podcasts</Text>} */}
             </ScrollView>
           )}
         </View>

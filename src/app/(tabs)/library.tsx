@@ -1,7 +1,7 @@
 import { Footer } from '@/src/components/ui/footer';
 import { LibraryItem, LibraryItemData } from '@/src/components/ui/library-item';
-import { MiniPlayer } from '@/src/components/ui/mini-player';
 import { useFooterActions } from '@/src/constants/footer-actions';
+import { useAuth } from '@/src/contexts/auth';
 import { detectApiBase } from '@/src/lib/api/detectApi';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
@@ -28,6 +28,7 @@ type FilterCategory = 'all' | 'playlist' | 'album' | 'artist';
 export default function LibraryScreen() {
   const router = useRouter();
   const footerActions = useFooterActions('library');
+  const { user } = useAuth();
 
   // Filter category state (Tất cả, Danh sách phát, Album, Nghệ sĩ - Đã loại bỏ Podcast)
   const [selectedFilter, setSelectedFilter] = useState<FilterCategory>('all');
@@ -50,13 +51,16 @@ export default function LibraryScreen() {
   // Modal tạo playlist mới
   const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
   const [newPlaylistTitle, setNewPlaylistTitle] = useState<string>('');
+  const [createError, setCreateError] = useState<string>('');
+  const [isCreating, setIsCreating] = useState<boolean>(false);
 
-  // Tải dữ liệu thư viện từ Backend API
+  // Tải dữ liệu thư viện từ Backend API (theo từng tài khoản user_id)
   const fetchLibraryData = useCallback(async () => {
     try {
       setLoading(true);
       const base = await detectApiBase();
-      const res = await fetch(`${base}/api/library`);
+      const queryParam = user?.user_id ? `?user_id=${user.user_id}` : '';
+      const res = await fetch(`${base}/api/library${queryParam}`);
       if (res.ok) {
         const data = await res.json();
         setItems(Array.isArray(data.items) ? data.items : []);
@@ -71,7 +75,7 @@ export default function LibraryScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [user?.user_id]);
 
   useEffect(() => {
     fetchLibraryData();
@@ -82,36 +86,38 @@ export default function LibraryScreen() {
     fetchLibraryData();
   };
 
-  // Tạo danh sách phát mới (gọi API backend)
+  // Tạo danh sách phát mới (gọi API backend gắn với tài khoản đang đăng nhập)
   const handleCreatePlaylist = useCallback(async () => {
     const title = newPlaylistTitle.trim();
-    if (!title) return;
+    if (!title) {
+      setCreateError('Vui lòng nhập tên danh sách phát.');
+      return;
+    }
 
-    setIsCreateModalOpen(false);
-    setNewPlaylistTitle('');
+    if (!user?.user_id) {
+      setCreateError('Vui lòng đăng nhập tài khoản để tạo danh sách phát.');
+      return;
+    }
+
+    setIsCreating(true);
+    setCreateError('');
 
     try {
       const base = await detectApiBase();
-      // Tạo playlist cho user_id = 1 (admin mặc định) nếu chưa đăng nhập
       const res = await fetch(`${base}/api/playlists`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, user_id: 1, is_public: true }),
+        body: JSON.stringify({ title, user_id: user.user_id, is_public: true }),
       });
       if (res.ok) {
+        setIsCreateModalOpen(false);
+        setNewPlaylistTitle('');
         // Reload danh sách sau khi tạo thành công
-        fetchLibraryData();
+        await fetchLibraryData();
       } else {
+        const data = await res.json().catch(() => null);
         console.warn('[Library] Create playlist failed', res.status);
-        // Thêm vào state ngay lập tức để UX mượt hơn
-        const optimisticItem: LibraryItemData = {
-          id: `local-${Date.now()}`,
-          title,
-          subtitle: 'Danh sách phát',
-          type: 'playlist',
-          cover_url: null,
-        };
-        setItems((prev) => [optimisticItem, ...prev]);
+        setCreateError(data?.message || 'Không thể tạo danh sách phát.');
       }
     } catch {
       // Fallback: thêm optimistic nếu không có mạng
@@ -123,8 +129,12 @@ export default function LibraryScreen() {
         cover_url: null,
       };
       setItems((prev) => [optimisticItem, ...prev]);
+      setIsCreateModalOpen(false);
+      setNewPlaylistTitle('');
+    } finally {
+      setIsCreating(false);
     }
-  }, [newPlaylistTitle, fetchLibraryData]);
+  }, [newPlaylistTitle, user?.user_id, fetchLibraryData]);
 
   // Lọc và Sắp xếp danh sách
   const filteredAndSortedItems = useMemo(() => {
@@ -191,13 +201,27 @@ export default function LibraryScreen() {
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             {/* User Avatar */}
-            <Image
-              source={{
-                uri: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
-              }}
-              style={styles.avatar}
-            />
-            <Text style={styles.headerTitle}>Thư viện</Text>
+            <TouchableOpacity
+              onPress={() => router.push(user ? ('/profile' as any) : '/login')}
+              activeOpacity={0.8}
+            >
+              <Image
+                source={{
+                  uri: user?.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
+                }}
+                style={styles.avatar}
+              />
+            </TouchableOpacity>
+            <View>
+              <Text style={styles.headerTitle}>Thư viện</Text>
+              {user ? (
+                <Text style={styles.headerSubtitle}>{user.username}</Text>
+              ) : (
+                <TouchableOpacity onPress={() => router.push('/login')}>
+                  <Text style={styles.headerLoginHint}>Chưa đăng nhập • Đăng nhập</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
 
           <View style={styles.headerRight}>
@@ -332,7 +356,7 @@ export default function LibraryScreen() {
             key={layoutMode} // Key đổi khi đổi layout để reset layout FlatList
             data={filteredAndSortedItems}
             numColumns={layoutMode === 'grid' ? 2 : 1}
-            keyExtractor={(item) => String(item.id)}
+            keyExtractor={(item) => `${item.type}-${item.id}`}
             renderItem={({ item }) => (
               <LibraryItem
                 item={item}
@@ -372,28 +396,68 @@ export default function LibraryScreen() {
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
               <Text style={styles.modalTitle}>Tạo danh sách phát mới</Text>
-              <TextInput
-                style={styles.modalInput}
-                placeholder="Tên danh sách phát..."
-                placeholderTextColor="#94A3B8"
-                value={newPlaylistTitle}
-                onChangeText={setNewPlaylistTitle}
-                autoFocus
-              />
-              <View style={styles.modalActions}>
-                <TouchableOpacity
-                  style={styles.modalCancelBtn}
-                  onPress={() => setIsCreateModalOpen(false)}
-                >
-                  <Text style={styles.modalCancelText}>Hủy</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.modalConfirmBtn}
-                  onPress={handleCreatePlaylist}
-                >
-                  <Text style={styles.modalConfirmText}>Tạo</Text>
-                </TouchableOpacity>
-              </View>
+
+              {!user?.user_id ? (
+                <View style={styles.loginRequiredBox}>
+                  <MaterialIcons name="account-circle" size={44} color="#38BDF8" style={{ marginBottom: 10 }} />
+                  <Text style={styles.loginRequiredText}>
+                    Bạn cần đăng nhập tài khoản để tạo và quản lý danh sách phát của riêng mình.
+                  </Text>
+                  <View style={styles.modalActions}>
+                    <TouchableOpacity
+                      style={styles.modalCancelBtn}
+                      onPress={() => setIsCreateModalOpen(false)}
+                    >
+                      <Text style={styles.modalCancelText}>Hủy</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.modalConfirmBtn}
+                      onPress={() => {
+                        setIsCreateModalOpen(false);
+                        router.push('/login');
+                      }}
+                    >
+                      <Text style={styles.modalConfirmText}>Đăng nhập ngay</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : (
+                <>
+                  <TextInput
+                    style={styles.modalInput}
+                    placeholder="Tên danh sách phát..."
+                    placeholderTextColor="#94A3B8"
+                    value={newPlaylistTitle}
+                    onChangeText={(text) => {
+                      setNewPlaylistTitle(text);
+                      if (createError) setCreateError('');
+                    }}
+                    autoFocus
+                  />
+                  {createError ? (
+                    <Text style={styles.modalErrorText}>{createError}</Text>
+                  ) : null}
+                  <View style={styles.modalActions}>
+                    <TouchableOpacity
+                      style={styles.modalCancelBtn}
+                      onPress={() => setIsCreateModalOpen(false)}
+                    >
+                      <Text style={styles.modalCancelText}>Hủy</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.modalConfirmBtn, isCreating && { opacity: 0.7 }]}
+                      onPress={handleCreatePlaylist}
+                      disabled={isCreating}
+                    >
+                      {isCreating ? (
+                        <ActivityIndicator size="small" color="#0F172A" />
+                      ) : (
+                        <Text style={styles.modalConfirmText}>Tạo</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
             </View>
           </View>
         </Modal>
@@ -589,5 +653,34 @@ const styles = StyleSheet.create({
   modalConfirmText: {
     color: '#0F172A',
     fontWeight: 'bold',
+  },
+  modalErrorText: {
+    color: '#EF4444',
+    fontSize: 13,
+    marginBottom: 12,
+    fontWeight: '500',
+  },
+  loginRequiredBox: {
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  loginRequiredText: {
+    color: '#E2E8F0',
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  headerSubtitle: {
+    color: '#38BDF8',
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  headerLoginHint: {
+    color: '#F59E0B',
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 2,
   },
 });
